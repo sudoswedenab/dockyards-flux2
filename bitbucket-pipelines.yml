@@ -1,0 +1,56 @@
+image: docker.io/library/golang:1.21
+
+definitions:
+  steps:
+  - step: &environment
+      name: environment
+      script:
+      - git fetch --tags
+      - echo "export VERSION=$BITBUCKET_BRANCH-$(git describe --always --dirty)-$(date +%s)" >> env.sh
+      - echo "export IMAGE=075899289117.dkr.ecr.eu-north-1.amazonaws.com/dockyards-flux2" >> env.sh
+      - cat env.sh
+      artifacts:
+      - env.sh
+  - step: &build
+      name: build
+      script:
+      - source env.sh
+      - docker build . --file Containerfile --tag dockyards-flux2
+      - docker save dockyards-flux2 --output dockyards-flux2.tar
+      services:
+      - docker
+      caches:
+      - docker
+      artifacts:
+      - dockyards-flux2.tar
+  - step: &push
+      name: push
+      image: docker.io/amazon/aws-cli:2.13.36
+      oidc: true
+      script:
+      - source env.sh
+      - echo $BITBUCKET_STEP_OIDC_TOKEN > /tmp/web-identity-token
+      - aws configure --profile bitbucket set region eu-north-1
+      - aws configure --profile bitbucket set role_arn arn:aws:iam::075899289117:role/BitbucketPipelinesDockyardsFlux2
+      - aws configure --profile bitbucket set web_identity_token_file /tmp/web-identity-token
+      - aws ecr get-login-password --profile bitbucket | docker login --username "AWS" --password-stdin "075899289117.dkr.ecr.eu-north-1.amazonaws.com"
+      - docker load --input dockyards-flux2.tar
+      - docker tag dockyards-flux2 "${IMAGE}:${VERSION}"
+      - docker push "${IMAGE}:${VERSION}"
+      services:
+      - docker
+  - step: &vendor
+      name: vendor
+      script:
+      - export GOPRIVATE=bitbucket.org/sudosweden
+      - git config --global url."ssh://git@bitbucket.org/".insteadOf "https://bitbucket.org/"
+      - go mod vendor
+      artifacts:
+      - vendor/**
+
+pipelines:
+  default:
+  - step: *environment
+  - step: *vendor
+  - step: *build
+  - step: *push
