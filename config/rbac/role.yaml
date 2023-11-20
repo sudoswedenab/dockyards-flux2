@@ -23,6 +23,12 @@ rules:
 - apiGroups:
   - dockyards.io
   resources:
+  - deployments/status
+  verbs:
+  - patch
+- apiGroups:
+  - dockyards.io
+  resources:
   - helmdeployments
   verbs:
   - get

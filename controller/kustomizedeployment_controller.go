@@ -8,9 +8,10 @@ import (
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	dockyardsv1alpha1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	"github.com/fluxcd/pkg/apis/meta"
+	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/source-controller/api/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -18,6 +19,7 @@ import (
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=kustomizedeployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories,verbs=create;get;list;watch
@@ -144,8 +146,8 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 				},
 				Prune:   true,
 				Timeout: &metav1.Duration{Duration: time.Minute},
-				KubeConfig: &meta.KubeConfigReference{
-					SecretRef: meta.SecretKeyReference{
+				KubeConfig: &fluxcdmeta.KubeConfigReference{
+					SecretRef: fluxcdmeta.SecretKeyReference{
 						Name: ownerCluster.Name + "-kubeconfig",
 					},
 				},
@@ -180,9 +182,41 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 	}
 
+	kustomizationReadyCondition := meta.FindStatusCondition(kustomization.Status.Conditions, fluxcdmeta.ReadyCondition)
+	if kustomizationReadyCondition == nil {
+		logger.Debug("kustomization has no ready condition")
+
+		return ctrl.Result{}, nil
+	}
+
+	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1alpha1.ReadyCondition, kustomizationReadyCondition.Status) {
+		logger.Debug("owner deployment needs status condition update")
+
+		readyCondition := metav1.Condition{
+			Type:    dockyardsv1alpha1.ReadyCondition,
+			Status:  kustomizationReadyCondition.Status,
+			Message: kustomizationReadyCondition.Message,
+			Reason:  kustomizationReadyCondition.Reason,
+		}
+
+		patch := client.MergeFrom(ownerDeployment.DeepCopy())
+
+		meta.SetStatusCondition(&ownerDeployment.Status.Conditions, readyCondition)
+
+		err := r.Status().Patch(ctx, ownerDeployment, patch)
+		if err != nil {
+			logger.Error("error patching owner deployment", "err", err)
+
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
 func (r *KustomizeDeploymentReconciler) SetupWithManager(manager ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(manager).For(&dockyardsv1alpha1.KustomizeDeployment{}).Complete(r)
+	return ctrl.NewControllerManagedBy(manager).
+		For(&dockyardsv1alpha1.KustomizeDeployment{}).
+		Owns(&kustomizev1.Kustomization{}).
+		Complete(r)
 }

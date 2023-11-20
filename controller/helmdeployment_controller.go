@@ -5,11 +5,12 @@ import (
 	"log/slog"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1alpha1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"github.com/fluxcd/helm-controller/api/v2beta1"
-	"github.com/fluxcd/pkg/apis/meta"
+	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/source-controller/api/v1beta2"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,6 +18,7 @@ import (
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=helmdeployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=create;get;list;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmrepositories,verbs=create;get;list;watch
@@ -27,7 +29,7 @@ type HelmDeploymentReconciler struct {
 }
 
 func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var helmDeployment v1alpha1.HelmDeployment
+	var helmDeployment dockyardsv1alpha1.HelmDeployment
 	err := r.Get(ctx, req.NamespacedName, &helmDeployment)
 	if client.IgnoreNotFound(err) != nil {
 		r.Logger.Error("error getting helm deployment", "err", err)
@@ -78,8 +80,8 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				Namespace: helmDeployment.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: v1alpha1.GroupVersion.String(),
-						Kind:       v1alpha1.HelmDeploymentKind,
+						APIVersion: dockyardsv1alpha1.GroupVersion.String(),
+						Kind:       dockyardsv1alpha1.HelmDeploymentKind,
 						Name:       helmDeployment.Name,
 						UID:        helmDeployment.UID,
 					},
@@ -115,8 +117,8 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				Namespace: helmDeployment.Namespace,
 				OwnerReferences: []metav1.OwnerReference{
 					{
-						APIVersion: v1alpha1.GroupVersion.String(),
-						Kind:       v1alpha1.HelmDeploymentKind,
+						APIVersion: dockyardsv1alpha1.GroupVersion.String(),
+						Kind:       dockyardsv1alpha1.HelmDeploymentKind,
 						Name:       helmDeployment.Name,
 						UID:        helmDeployment.UID,
 					},
@@ -135,8 +137,8 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 					},
 				},
 				Values: helmDeployment.Spec.Values,
-				KubeConfig: &meta.KubeConfigReference{
-					SecretRef: meta.SecretKeyReference{
+				KubeConfig: &fluxcdmeta.KubeConfigReference{
+					SecretRef: fluxcdmeta.SecretKeyReference{
 						Name: ownerCluster.Name + "-kubeconfig",
 					},
 				},
@@ -161,9 +163,9 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		patch := client.MergeFrom(ownerDeployment.DeepCopy())
 
-		ownerDeployment.Spec.DeploymentRef = v1alpha1.DeploymentReference{
-			APIVersion: v1alpha1.GroupVersion.String(),
-			Kind:       v1alpha1.KustomizeDeploymentKind,
+		ownerDeployment.Spec.DeploymentRef = dockyardsv1alpha1.DeploymentReference{
+			APIVersion: dockyardsv1alpha1.GroupVersion.String(),
+			Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
 			Name:       helmDeployment.Name,
 			UID:        helmDeployment.UID,
 		}
@@ -176,12 +178,41 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
+	helmReadyCondition := meta.FindStatusCondition(helmRelease.Status.Conditions, fluxcdmeta.ReadyCondition)
+	if helmReadyCondition == nil {
+		r.Logger.Debug("kustomization has no ready condition")
+
+		return ctrl.Result{}, nil
+	}
+
+	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1alpha1.ReadyCondition, helmReadyCondition.Status) {
+		r.Logger.Debug("owner deployment needs status condition update")
+
+		readyCondition := metav1.Condition{
+			Type:    dockyardsv1alpha1.ReadyCondition,
+			Status:  helmReadyCondition.Status,
+			Message: helmReadyCondition.Message,
+			Reason:  helmReadyCondition.Reason,
+		}
+
+		patch := client.MergeFrom(ownerDeployment.DeepCopy())
+
+		meta.SetStatusCondition(&ownerDeployment.Status.Conditions, readyCondition)
+
+		err := r.Status().Patch(ctx, ownerDeployment, patch)
+		if err != nil {
+			r.Logger.Error("error patching owner deployment", "err", err)
+
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
-func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Object) (*v1alpha1.Deployment, error) {
+func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Object) (*dockyardsv1alpha1.Deployment, error) {
 	for _, ownerReference := range object.GetOwnerReferences() {
-		if ownerReference.Kind != v1alpha1.DeploymentKind {
+		if ownerReference.Kind != dockyardsv1alpha1.DeploymentKind {
 			continue
 		}
 
@@ -190,7 +221,7 @@ func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Obje
 			Namespace: object.GetNamespace(),
 		}
 
-		var deployment v1alpha1.Deployment
+		var deployment dockyardsv1alpha1.Deployment
 		err := r.Get(ctx, objectKey, &deployment)
 		if err != nil {
 			return nil, err
@@ -203,5 +234,8 @@ func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Obje
 }
 
 func (r *HelmDeploymentReconciler) SetupWithManager(manager ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(manager).For(&v1alpha1.HelmDeployment{}).Complete(r)
+	return ctrl.NewControllerManagedBy(manager).
+		For(&dockyardsv1alpha1.HelmDeployment{}).
+		Owns(&v2beta1.HelmRelease{}).
+		Complete(r)
 }
