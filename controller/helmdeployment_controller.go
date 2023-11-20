@@ -156,6 +156,26 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 	}
 
+	if ownerDeployment.Spec.DeploymentRef.Name == "" {
+		r.Logger.Debug("owner deployment reference empty")
+
+		patch := client.MergeFrom(ownerDeployment.DeepCopy())
+
+		ownerDeployment.Spec.DeploymentRef = v1alpha1.DeploymentReference{
+			APIVersion: v1alpha1.GroupVersion.String(),
+			Kind:       v1alpha1.KustomizeDeploymentKind,
+			Name:       helmDeployment.Name,
+			UID:        helmDeployment.UID,
+		}
+
+		err := r.Patch(ctx, ownerDeployment, patch)
+		if err != nil {
+			r.Logger.Error("error patching owner deployment")
+
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 

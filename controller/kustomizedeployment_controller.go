@@ -160,6 +160,26 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 	}
 
+	if ownerDeployment.Spec.DeploymentRef.Name == "" {
+		logger.Debug("owner deployment reference empty")
+
+		patch := client.MergeFrom(ownerDeployment.DeepCopy())
+
+		ownerDeployment.Spec.DeploymentRef = dockyardsv1alpha1.DeploymentReference{
+			APIVersion: dockyardsv1alpha1.GroupVersion.String(),
+			Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
+			Name:       kustomizeDeployment.Name,
+			UID:        kustomizeDeployment.UID,
+		}
+
+		err := r.Patch(ctx, ownerDeployment, patch)
+		if err != nil {
+			logger.Error("error patching owner deployment")
+
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
 }
 
