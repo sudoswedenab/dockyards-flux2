@@ -37,30 +37,31 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	r.Logger.Debug("reconcile helm deployment", "name", helmDeployment.Name)
+	logger := r.Logger.With("name", helmDeployment.Name, "namespace", helmDeployment.Namespace)
+	logger.Debug("reconcile helm deployment")
 
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &helmDeployment)
 	if err != nil {
-		r.Logger.Error("error getting owner deployment", "err", err)
+		logger.Error("error getting owner deployment", "err", err)
 
 		return ctrl.Result{}, err
 	}
 
 	if ownerDeployment == nil {
-		r.Logger.Info("ignoring helm deployment without owner deployment", "name", helmDeployment.Name)
+		logger.Info("ignoring helm deployment without owner deployment", "name", helmDeployment.Name)
 
 		return ctrl.Result{}, nil
 	}
 
 	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, ownerDeployment)
 	if err != nil {
-		r.Logger.Error("error getting owner cluster", "err", err)
+		logger.Error("error getting owner cluster", "err", err)
 
 		return ctrl.Result{}, err
 	}
 
 	if ownerCluster == nil {
-		r.Logger.Info("ignoring deployment without owner cluster", "name", ownerDeployment.Name)
+		logger.Info("ignoring deployment without owner cluster", "name", ownerDeployment.Name)
 
 		return ctrl.Result{}, nil
 	}
@@ -68,7 +69,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	var helmRepository v1beta2.HelmRepository
 	err = r.Get(ctx, req.NamespacedName, &helmRepository)
 	if client.IgnoreNotFound(err) != nil {
-		r.Logger.Error("error getting helm repository", "err", err)
+		logger.Error("error getting helm repository", "err", err)
 
 		return ctrl.Result{}, err
 	}
@@ -94,7 +95,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		err := r.Create(ctx, &helmRepository)
 		if err != nil {
-			r.Logger.Error("error creating helm repository", "err", err)
+			logger.Error("error creating helm repository", "err", err)
 
 			return ctrl.Result{}, err
 		}
@@ -103,13 +104,13 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	var helmRelease v2beta1.HelmRelease
 	err = r.Get(ctx, req.NamespacedName, &helmRelease)
 	if client.IgnoreNotFound(err) != nil {
-		r.Logger.Error("error getting helm release", "err", err)
+		logger.Error("error getting helm release", "err", err)
 
 		return ctrl.Result{}, err
 	}
 
 	if apierrors.IsNotFound(err) {
-		r.Logger.Info("helm release not found")
+		logger.Info("helm release not found")
 
 		helmRelease := v2beta1.HelmRelease{
 			ObjectMeta: metav1.ObjectMeta{
@@ -152,14 +153,14 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		err := r.Create(ctx, &helmRelease)
 		if err != nil {
-			r.Logger.Error("error creating helm release", "err", err)
+			logger.Error("error creating helm release", "err", err)
 
 			return ctrl.Result{}, err
 		}
 	}
 
 	if ownerDeployment.Spec.DeploymentRef.Name == "" {
-		r.Logger.Debug("owner deployment reference empty")
+		logger.Debug("owner deployment reference empty")
 
 		patch := client.MergeFrom(ownerDeployment.DeepCopy())
 
@@ -172,7 +173,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		err := r.Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			r.Logger.Error("error patching owner deployment")
+			logger.Error("error patching owner deployment")
 
 			return ctrl.Result{}, err
 		}
@@ -180,13 +181,13 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	helmReadyCondition := meta.FindStatusCondition(helmRelease.Status.Conditions, fluxcdmeta.ReadyCondition)
 	if helmReadyCondition == nil {
-		r.Logger.Debug("kustomization has no ready condition")
+		logger.Debug("kustomization has no ready condition")
 
 		return ctrl.Result{}, nil
 	}
 
 	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1alpha1.ReadyCondition, helmReadyCondition.Status) {
-		r.Logger.Debug("owner deployment needs status condition update")
+		logger.Debug("owner deployment needs status condition update")
 
 		readyCondition := metav1.Condition{
 			Type:    dockyardsv1alpha1.ReadyCondition,
@@ -201,7 +202,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		err := r.Status().Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			r.Logger.Error("error patching owner deployment", "err", err)
+			logger.Error("error patching owner deployment", "err", err)
 
 			return ctrl.Result{}, err
 		}
