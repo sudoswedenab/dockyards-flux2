@@ -68,6 +68,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = (&controller.ContainerImageDeploymentReconciler{
+		Client: manager.GetClient(),
+		Logger: logger,
+	}).SetupWithManager(manager)
+	if err != nil {
+		logger.Error("error creating container image deployment reconciler", "err", err)
+
+		os.Exit(1)
+	}
+
 	err = manager.Start(ctx)
 	if err != nil {
 		logger.Error("error starting manager", "err", err)
