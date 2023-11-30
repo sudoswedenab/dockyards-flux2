@@ -29,15 +29,16 @@ type HelmDeploymentReconciler struct {
 }
 
 func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := r.Logger.With("name", req.Name, "namespace", req.Namespace)
+
 	var helmDeployment dockyardsv1alpha1.HelmDeployment
 	err := r.Get(ctx, req.NamespacedName, &helmDeployment)
 	if client.IgnoreNotFound(err) != nil {
-		r.Logger.Error("error getting helm deployment", "err", err)
+		logger.Error("error getting helm deployment", "err", err)
 
 		return ctrl.Result{}, err
 	}
 
-	logger := r.Logger.With("name", helmDeployment.Name, "namespace", helmDeployment.Namespace)
 	logger.Debug("reconcile helm deployment")
 
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &helmDeployment)
@@ -166,7 +167,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		ownerDeployment.Spec.DeploymentRef = dockyardsv1alpha1.DeploymentReference{
 			APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-			Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
+			Kind:       dockyardsv1alpha1.HelmDeploymentKind,
 			Name:       helmDeployment.Name,
 			UID:        helmDeployment.UID,
 		}
@@ -181,7 +182,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	helmReadyCondition := meta.FindStatusCondition(helmRelease.Status.Conditions, fluxcdmeta.ReadyCondition)
 	if helmReadyCondition == nil {
-		logger.Debug("kustomization has no ready condition")
+		logger.Debug("helm release has no ready condition")
 
 		return ctrl.Result{}, nil
 	}
@@ -238,5 +239,6 @@ func (r *HelmDeploymentReconciler) SetupWithManager(manager ctrl.Manager) error 
 	return ctrl.NewControllerManagedBy(manager).
 		For(&dockyardsv1alpha1.HelmDeployment{}).
 		Owns(&v2beta1.HelmRelease{}).
+		Owns(&v1beta2.HelmRepository{}).
 		Complete(r)
 }
