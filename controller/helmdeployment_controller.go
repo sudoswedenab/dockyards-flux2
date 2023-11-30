@@ -75,6 +75,8 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	controller := true
+
 	if apierrors.IsNotFound(err) {
 		helmRepository = v1beta2.HelmRepository{
 			ObjectMeta: metav1.ObjectMeta{
@@ -86,6 +88,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 						Kind:       dockyardsv1alpha1.HelmDeploymentKind,
 						Name:       helmDeployment.Name,
 						UID:        helmDeployment.UID,
+						Controller: &controller,
 					},
 				},
 			},
@@ -123,6 +126,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 						Kind:       dockyardsv1alpha1.HelmDeploymentKind,
 						Name:       helmDeployment.Name,
 						UID:        helmDeployment.UID,
+						Controller: &controller,
 					},
 				},
 			},
