@@ -148,6 +148,9 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				StorageNamespace: ownerDeployment.Spec.TargetNamespace,
 				Install: &v2beta1.Install{
 					CreateNamespace: true,
+					Remediation: &v2beta1.InstallRemediation{
+						Retries: -1,
+					},
 				},
 			},
 		}
