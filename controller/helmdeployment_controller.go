@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	dockyardsv1alpha1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
@@ -156,6 +157,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 						Retries: -1,
 					},
 				},
+				Interval: metav1.Duration{Duration: time.Minute * 5},
 			},
 		}
 
