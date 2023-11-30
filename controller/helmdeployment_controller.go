@@ -17,7 +17,7 @@ import (
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
-// +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;patch;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=helmdeployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=create;get;list;watch
