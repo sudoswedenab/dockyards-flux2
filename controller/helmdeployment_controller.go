@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"log/slog"
+	"strings"
 	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
@@ -157,7 +158,8 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 						Retries: -1,
 					},
 				},
-				Interval: metav1.Duration{Duration: time.Minute * 5},
+				Interval:    metav1.Duration{Duration: time.Minute * 5},
+				ReleaseName: strings.TrimPrefix(helmDeployment.Name, ownerCluster.Name+"-"),
 			},
 		}
 
