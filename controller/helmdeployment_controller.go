@@ -11,18 +11,18 @@ import (
 	"github.com/fluxcd/helm-controller/api/v2beta1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/source-controller/api/v1beta2"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;patch;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=helmdeployments,verbs=get;list;watch
-// +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=create;get;list;watch
+// +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=create;get;list;patch;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmrepositories,verbs=create;get;list;watch
 
 type HelmDeploymentReconciler struct {
@@ -69,107 +69,91 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	var helmRepository v1beta2.HelmRepository
-	err = r.Get(ctx, req.NamespacedName, &helmRepository)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error("error getting helm repository", "err", err)
-
-		return ctrl.Result{}, err
-	}
-
 	controller := true
 
-	if apierrors.IsNotFound(err) {
-		helmRepository = v1beta2.HelmRepository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      helmDeployment.Name,
-				Namespace: helmDeployment.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-						Kind:       dockyardsv1alpha1.HelmDeploymentKind,
-						Name:       helmDeployment.Name,
-						UID:        helmDeployment.UID,
-						Controller: &controller,
-					},
+	helmRepository := v1beta2.HelmRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      helmDeployment.Name,
+			Namespace: helmDeployment.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: dockyardsv1alpha1.GroupVersion.String(),
+					Kind:       dockyardsv1alpha1.HelmDeploymentKind,
+					Name:       helmDeployment.Name,
+					UID:        helmDeployment.UID,
+					Controller: &controller,
 				},
 			},
-			Spec: v1beta2.HelmRepositorySpec{
-				URL: helmDeployment.Spec.Repository,
-			},
-		}
-
-		err := r.Create(ctx, &helmRepository)
-		if err != nil {
-			logger.Error("error creating helm repository", "err", err)
-
-			return ctrl.Result{}, err
-		}
+		},
 	}
 
-	var helmRelease v2beta1.HelmRelease
-	err = r.Get(ctx, req.NamespacedName, &helmRelease)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error("error getting helm release", "err", err)
+	operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &helmRepository, func() error {
+		helmRepository.Spec.URL = helmDeployment.Spec.Repository
+
+		return nil
+	})
+	if err != nil {
+		logger.Error("error reconciling helm repository", "err", err)
 
 		return ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		logger.Info("helm release not found")
+	logger.Debug("reconciled helm repository", "result", operationResult)
 
-		helmRelease := v2beta1.HelmRelease{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      helmDeployment.Name,
-				Namespace: helmDeployment.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-						Kind:       dockyardsv1alpha1.HelmDeploymentKind,
-						Name:       helmDeployment.Name,
-						UID:        helmDeployment.UID,
-						Controller: &controller,
-					},
+	helmRelease := v2beta1.HelmRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      helmDeployment.Name,
+			Namespace: helmDeployment.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: dockyardsv1alpha1.GroupVersion.String(),
+					Kind:       dockyardsv1alpha1.HelmDeploymentKind,
+					Name:       helmDeployment.Name,
+					UID:        helmDeployment.UID,
+					Controller: &controller,
 				},
 			},
-			Spec: v2beta1.HelmReleaseSpec{
-				Chart: v2beta1.HelmChartTemplate{
-					Spec: v2beta1.HelmChartTemplateSpec{
-						Chart:   helmDeployment.Spec.Chart,
-						Version: helmDeployment.Spec.Version,
-						SourceRef: v2beta1.CrossNamespaceObjectReference{
-							APIVersion: v1beta2.GroupVersion.String(),
-							Kind:       v1beta2.HelmRepositoryKind,
-							Name:       helmRepository.Name,
-						},
-					},
-				},
-				Values: helmDeployment.Spec.Values,
-				KubeConfig: &fluxcdmeta.KubeConfigReference{
-					SecretRef: fluxcdmeta.SecretKeyReference{
-						Name: ownerCluster.Name + "-kubeconfig",
-					},
-				},
-				TargetNamespace:  ownerDeployment.Spec.TargetNamespace,
-				StorageNamespace: ownerDeployment.Spec.TargetNamespace,
-				Install: &v2beta1.Install{
-					CreateNamespace: true,
-					Remediation: &v2beta1.InstallRemediation{
-						Retries: -1,
-					},
-				},
-				Interval:    metav1.Duration{Duration: time.Minute * 5},
-				ReleaseName: strings.TrimPrefix(helmDeployment.Name, ownerCluster.Name+"-"),
-			},
-		}
-
-		err := r.Create(ctx, &helmRelease)
-		if err != nil {
-			logger.Error("error creating helm release", "err", err)
-
-			return ctrl.Result{}, err
-		}
+		},
 	}
+
+	operationResult, err = controllerutil.CreateOrPatch(ctx, r.Client, &helmRelease, func() error {
+		helmRelease.Spec.Chart = v2beta1.HelmChartTemplate{
+			Spec: v2beta1.HelmChartTemplateSpec{
+				Chart:   helmDeployment.Spec.Chart,
+				Version: helmDeployment.Spec.Version,
+				SourceRef: v2beta1.CrossNamespaceObjectReference{
+					APIVersion: v1beta2.GroupVersion.String(),
+					Kind:       v1beta2.HelmRepositoryKind,
+					Name:       helmRepository.Name,
+				},
+			},
+		}
+		helmRelease.Spec.Values = helmDeployment.Spec.Values
+		helmRelease.Spec.KubeConfig = &fluxcdmeta.KubeConfigReference{
+			SecretRef: fluxcdmeta.SecretKeyReference{
+				Name: ownerCluster.Name + "-kubeconfig",
+			},
+		}
+		helmRelease.Spec.TargetNamespace = ownerDeployment.Spec.TargetNamespace
+		helmRelease.Spec.StorageNamespace = ownerDeployment.Spec.TargetNamespace
+		helmRelease.Spec.Install = &v2beta1.Install{
+			CreateNamespace: true,
+			Remediation: &v2beta1.InstallRemediation{
+				Retries: -1,
+			},
+		}
+		helmRelease.Spec.Interval = metav1.Duration{Duration: time.Minute * 5}
+		helmRelease.Spec.ReleaseName = strings.TrimPrefix(helmDeployment.Name, ownerCluster.Name+"-")
+
+		return nil
+	})
+	if err != nil {
+		logger.Error("error reconciling helm release", "err", err)
+
+		return ctrl.Result{}, err
+	}
+
+	logger.Debug("reconciled helm release", "result", operationResult)
 
 	if ownerDeployment.Spec.DeploymentRef.Name == "" {
 		logger.Debug("owner deployment reference empty")
