@@ -10,11 +10,11 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/source-controller/api/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
@@ -71,96 +71,82 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	var gitRepository v1.GitRepository
-	err = r.Get(ctx, req.NamespacedName, &gitRepository)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error("error getting git repository", "err", err)
+	controller := true
+
+	gitRepository := v1.GitRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kustomizeDeployment.Name,
+			Namespace: kustomizeDeployment.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: dockyardsv1alpha1.GroupVersion.String(),
+					Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
+					Name:       kustomizeDeployment.Name,
+					UID:        kustomizeDeployment.UID,
+					Controller: &controller,
+				},
+			},
+		},
+	}
+
+	operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &gitRepository, func() error {
+		gitRepository.Spec.Interval = metav1.Duration{Duration: time.Minute * 5}
+		gitRepository.Spec.URL = kustomizeDeployment.Status.RepositoryURL
+		gitRepository.Spec.Reference = &v1.GitRepositoryRef{
+			Branch: "main",
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.Error("error reconciling git repository", "err", err)
 
 		return ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		logger.Debug("git repository not found")
+	logger.Debug("reconciled git repository", "result", operationResult)
 
-		gitRepository = v1.GitRepository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizeDeployment.Name,
-				Namespace: kustomizeDeployment.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-						Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
-						Name:       kustomizeDeployment.Name,
-						UID:        kustomizeDeployment.UID,
-					},
+	kustomization := kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kustomizeDeployment.Name,
+			Namespace: kustomizeDeployment.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: dockyardsv1alpha1.GroupVersion.String(),
+					Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
+					Name:       kustomizeDeployment.Name,
+					UID:        kustomizeDeployment.UID,
+					Controller: &controller,
 				},
 			},
-			Spec: v1.GitRepositorySpec{
-				Interval: metav1.Duration{Duration: time.Minute * 5},
-				URL:      kustomizeDeployment.Status.RepositoryURL,
-				Reference: &v1.GitRepositoryRef{
-					Branch: "main",
-				},
-			},
-		}
-
-		err := r.Create(ctx, &gitRepository)
-		if err != nil {
-			logger.Error("error creating git repository", "err", err)
-
-			return ctrl.Result{}, err
-		}
+		},
 	}
 
-	var kustomization kustomizev1.Kustomization
-	err = r.Get(ctx, req.NamespacedName, &kustomization)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error("error getting kustomization", "err", err)
+	operationResult, err = controllerutil.CreateOrPatch(ctx, r.Client, &kustomization, func() error {
+		kustomization.Spec.Interval = metav1.Duration{Duration: time.Minute * 10}
+		kustomization.Spec.TargetNamespace = ownerDeployment.Spec.TargetNamespace
+		kustomization.Spec.SourceRef = kustomizev1.CrossNamespaceSourceReference{
+			APIVersion: v1.GroupVersion.String(),
+			Kind:       v1.GitRepositoryKind,
+			Name:       gitRepository.Name,
+		}
+		kustomization.Spec.Prune = true
+		kustomization.Spec.Timeout = &metav1.Duration{Duration: time.Minute}
+		kustomization.Spec.KubeConfig = &fluxcdmeta.KubeConfigReference{
+			SecretRef: fluxcdmeta.SecretKeyReference{
+				Name: ownerCluster.Name + "-kubeconfig",
+			},
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.Error("error reconciling kustomization", "err", err)
 
 		return ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		logger.Debug("kustomization not found")
-
-		kustomization = kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      kustomizeDeployment.Name,
-				Namespace: kustomizeDeployment.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-						Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
-						Name:       kustomizeDeployment.Name,
-						UID:        kustomizeDeployment.UID,
-					},
-				},
-			},
-			Spec: kustomizev1.KustomizationSpec{
-				Interval:        metav1.Duration{Duration: time.Minute * 10},
-				TargetNamespace: ownerDeployment.Spec.TargetNamespace,
-				SourceRef: kustomizev1.CrossNamespaceSourceReference{
-					APIVersion: v1.GroupVersion.String(),
-					Kind:       v1.GitRepositoryKind,
-					Name:       gitRepository.Name,
-				},
-				Prune:   true,
-				Timeout: &metav1.Duration{Duration: time.Minute},
-				KubeConfig: &fluxcdmeta.KubeConfigReference{
-					SecretRef: fluxcdmeta.SecretKeyReference{
-						Name: ownerCluster.Name + "-kubeconfig",
-					},
-				},
-			},
-		}
-
-		err := r.Create(ctx, &kustomization)
-		if err != nil {
-			logger.Error("error creating kustomization", "err", err)
-
-			return ctrl.Result{}, err
-		}
-	}
+	logger.Debug("reconciled kustomization", "result", operationResult)
 
 	if ownerDeployment.Spec.DeploymentRef.Name == "" {
 		logger.Debug("owner deployment reference empty")
@@ -217,6 +203,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 func (r *KustomizeDeploymentReconciler) SetupWithManager(manager ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(manager).
 		For(&dockyardsv1alpha1.KustomizeDeployment{}).
+		Owns(&v1.GitRepository{}).
 		Owns(&kustomizev1.Kustomization{}).
 		Complete(r)
 }
