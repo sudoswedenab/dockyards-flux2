@@ -1,5 +1,7 @@
 bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20231113153357-6f11d53d2679 h1:uJiC6dT0Mu6+esvzdRsznlKDUM4Raj7PljN86g9Boas=
 bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20231113153357-6f11d53d2679/go.mod h1:fAPf/0ZQt19CyN3vAvBVK/ZXqTAWPihKikI+0ylvlMg=
+bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20231211195255-2c32cc12cd18 h1:+zCb524RMT3zho4XRZqlEsX1hKViSBYtr1cMBnGmIXs=
+bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20231211195255-2c32cc12cd18/go.mod h1:fAPf/0ZQt19CyN3vAvBVK/ZXqTAWPihKikI+0ylvlMg=
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=

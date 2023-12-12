@@ -3,7 +3,7 @@ module bitbucket.org/sudosweden/dockyards-flux2
 go 1.21.4
 
 require (
-	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20231113153357-6f11d53d2679
+	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20231211195255-2c32cc12cd18
 	github.com/fluxcd/helm-controller/api v0.35.0
 	github.com/fluxcd/kustomize-controller/api v1.0.1
 	github.com/fluxcd/pkg/apis/meta v1.1.2
