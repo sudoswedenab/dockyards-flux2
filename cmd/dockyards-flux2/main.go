@@ -13,6 +13,7 @@ import (
 	"github.com/fluxcd/source-controller/api/v1"
 	"github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/go-logr/logr/slogr"
+	"sigs.k8s.io/cluster-api/controllers/remote"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -37,6 +38,13 @@ func main() {
 	manager, err := ctrl.NewManager(cfg, manager.Options{})
 	if err != nil {
 		logger.Error("error creating manager", "err", err)
+
+		os.Exit(1)
+	}
+
+	tracker, err := remote.NewClusterCacheTracker(manager, remote.ClusterCacheTrackerOptions{})
+	if err != nil {
+		logger.Error("error creating new cluster cache tracker", "err", err)
 
 		os.Exit(1)
 	}
@@ -74,6 +82,16 @@ func main() {
 	}).SetupWithManager(manager)
 	if err != nil {
 		logger.Error("error creating container image deployment reconciler", "err", err)
+
+		os.Exit(1)
+	}
+
+	err = (&controller.HelmReleaseReconciler{
+		Client:  manager.GetClient(),
+		Tracker: tracker,
+	}).SetupWithManager(manager)
+	if err != nil {
+		logger.Error("error creating helm release reconciler", "err", err)
 
 		os.Exit(1)
 	}
