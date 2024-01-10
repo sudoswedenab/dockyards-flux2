@@ -39,6 +39,10 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	if !helmRelease.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	logger.Info("reconcile helm release")
 
 	ownerHelmDeployment, err := dockyardsutil.GetOwnerHelmDeployment(ctx, r.Client, &helmRelease)
