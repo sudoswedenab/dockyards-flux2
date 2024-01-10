@@ -92,6 +92,8 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	trackerClient, err := r.Tracker.GetClient(ctx, namespacedName)
 	if err != nil {
 		logger.Error(err, "error getting cluster client")
+
+		return ctrl.Result{}, err
 	}
 
 	var ingressList networkingv1.IngressList
@@ -114,7 +116,6 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		urls = append(urls, ingressutil.GetURLsFromIngress(&ingress)...)
 
 		logger.Info("ingress", "name", ingress.Name, "urls", urls)
-
 	}
 
 	if !slices.Equal(ownerDeployment.Status.URLs, urls) {
