@@ -172,7 +172,7 @@ func (r *HelmReleaseReconciler) watchClusterIngresses(ctx context.Context, clust
 func (r *HelmReleaseReconciler) ingressToHelmRelease(ctx context.Context, o client.Object) []reconcile.Request {
 	ingress, ok := o.(*networkingv1.Ingress)
 	if !ok {
-		panic("not ok")
+		return nil
 	}
 
 	originLabelName, hasLabel := ingress.Labels[HelmOriginLabelNameKey]
