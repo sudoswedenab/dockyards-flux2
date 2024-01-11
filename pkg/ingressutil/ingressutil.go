@@ -9,6 +9,10 @@ import (
 func GetURLsFromIngress(ingress *networkingv1.Ingress) []string {
 	urls := []string{}
 
+	if len(ingress.Status.LoadBalancer.Ingress) == 0 {
+		return urls
+	}
+
 	for _, tls := range ingress.Spec.TLS {
 		for _, host := range tls.Hosts {
 			u := url.URL{

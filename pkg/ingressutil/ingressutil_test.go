@@ -24,6 +24,15 @@ func TestGetURLsFromIngress(t *testing.T) {
 						},
 					},
 				},
+				Status: networkingv1.IngressStatus{
+					LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+						Ingress: []networkingv1.IngressLoadBalancerIngress{
+							{
+								IP: "1.2.3.4",
+							},
+						},
+					},
+				},
 			},
 			expected: []string{
 				"http://test.dockyards.dev",
@@ -47,10 +56,50 @@ func TestGetURLsFromIngress(t *testing.T) {
 						},
 					},
 				},
+				Status: networkingv1.IngressStatus{
+					LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+						Ingress: []networkingv1.IngressLoadBalancerIngress{
+							{
+								IP: "1.2.3.4",
+							},
+						},
+					},
+				},
 			},
 			expected: []string{
 				"https://test.dockyards.dev",
 			},
+		},
+		{
+			name: "test ingress without status",
+			ingress: networkingv1.Ingress{
+				Spec: networkingv1.IngressSpec{
+					Rules: []networkingv1.IngressRule{
+						{
+							Host: "test.dockyards.dev",
+						},
+					},
+				},
+			},
+			expected: []string{},
+		},
+		{
+			name: "test ingress without ip",
+			ingress: networkingv1.Ingress{
+				Spec: networkingv1.IngressSpec{
+					Rules: []networkingv1.IngressRule{
+						{
+							Host: "test.dockyards.dev",
+						},
+					},
+				},
+				Status: networkingv1.IngressStatus{
+					LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+						Ingress: []networkingv1.IngressLoadBalancerIngress{},
+					},
+				},
+			},
+			expected: []string{},
 		},
 	}
 
