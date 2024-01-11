@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -27,16 +26,15 @@ import (
 
 type HelmDeploymentReconciler struct {
 	client.Client
-	Logger *slog.Logger
 }
 
 func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := r.Logger.With("name", req.Name, "namespace", req.Namespace)
+	logger := ctrl.LoggerFrom(ctx)
 
 	var helmDeployment dockyardsv1alpha1.HelmDeployment
 	err := r.Get(ctx, req.NamespacedName, &helmDeployment)
 	if client.IgnoreNotFound(err) != nil {
-		logger.Error("error getting helm deployment", "err", err)
+		logger.Error(err, "error getting helm deployment")
 
 		return ctrl.Result{}, err
 	}
@@ -45,11 +43,11 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	logger.Debug("reconcile helm deployment")
+	logger.Info("reconcile helm deployment")
 
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &helmDeployment)
 	if err != nil {
-		logger.Error("error getting owner deployment", "err", err)
+		logger.Error(err, "error getting owner deployment")
 
 		return ctrl.Result{}, err
 	}
@@ -62,7 +60,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, ownerDeployment)
 	if err != nil {
-		logger.Error("error getting owner cluster", "err", err)
+		logger.Error(err, "error getting owner cluster")
 
 		return ctrl.Result{}, err
 	}
@@ -97,12 +95,12 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return nil
 	})
 	if err != nil {
-		logger.Error("error reconciling helm repository", "err", err)
+		logger.Error(err, "error reconciling helm repository")
 
 		return ctrl.Result{}, err
 	}
 
-	logger.Debug("reconciled helm repository", "result", operationResult)
+	logger.Info("reconciled helm repository", "result", operationResult)
 
 	helmRelease := v2beta1.HelmRelease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -152,15 +150,15 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return nil
 	})
 	if err != nil {
-		logger.Error("error reconciling helm release", "err", err)
+		logger.Error(err, "error reconciling helm release")
 
 		return ctrl.Result{}, err
 	}
 
-	logger.Debug("reconciled helm release", "result", operationResult)
+	logger.Info("reconciled helm release", "result", operationResult)
 
 	if ownerDeployment.Spec.DeploymentRef.Name == "" {
-		logger.Debug("owner deployment reference empty")
+		logger.Info("owner deployment reference empty")
 
 		patch := client.MergeFrom(ownerDeployment.DeepCopy())
 
@@ -173,7 +171,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		err := r.Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error("error patching owner deployment")
+			logger.Error(err, "error patching owner deployment")
 
 			return ctrl.Result{}, err
 		}
@@ -181,13 +179,13 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	helmReadyCondition := meta.FindStatusCondition(helmRelease.Status.Conditions, fluxcdmeta.ReadyCondition)
 	if helmReadyCondition == nil {
-		logger.Debug("helm release has no ready condition")
+		logger.Info("helm release has no ready condition")
 
 		return ctrl.Result{}, nil
 	}
 
 	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1alpha1.ReadyCondition, helmReadyCondition.Status) {
-		logger.Debug("owner deployment needs status condition update")
+		logger.Info("owner deployment needs status condition update")
 
 		readyCondition := metav1.Condition{
 			Type:    dockyardsv1alpha1.ReadyCondition,
@@ -202,7 +200,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		err := r.Status().Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error("error patching owner deployment", "err", err)
+			logger.Error(err, "error patching owner deployment")
 
 			return ctrl.Result{}, err
 		}

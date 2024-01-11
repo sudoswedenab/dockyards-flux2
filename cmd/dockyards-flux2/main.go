@@ -58,7 +58,6 @@ func main() {
 
 	err = (&controller.HelmDeploymentReconciler{
 		Client: manager.GetClient(),
-		Logger: logger,
 	}).SetupWithManager(manager)
 	if err != nil {
 		logger.Error("error creating helm deployment reconciler", "err", err)
@@ -68,7 +67,6 @@ func main() {
 
 	err = (&controller.KustomizeDeploymentReconciler{
 		Client: manager.GetClient(),
-		Logger: logger,
 	}).SetupWithManager(manager)
 	if err != nil {
 		logger.Error("error creating kustomize deployment reconciler", "err", err)
@@ -78,7 +76,6 @@ func main() {
 
 	err = (&controller.ContainerImageDeploymentReconciler{
 		Client: manager.GetClient(),
-		Logger: logger,
 	}).SetupWithManager(manager)
 	if err != nil {
 		logger.Error("error creating container image deployment reconciler", "err", err)

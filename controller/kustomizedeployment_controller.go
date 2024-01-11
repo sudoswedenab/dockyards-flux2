@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"log/slog"
 	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
@@ -26,22 +25,22 @@ import (
 
 type KustomizeDeploymentReconciler struct {
 	client.Client
-	Logger *slog.Logger
 }
 
 func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	logger := ctrl.LoggerFrom(ctx)
+
 	var kustomizeDeployment dockyardsv1alpha1.KustomizeDeployment
 	err := r.Get(ctx, req.NamespacedName, &kustomizeDeployment)
 	if client.IgnoreNotFound(err) != nil {
-		r.Logger.Error("error getting kustomize deployment", "err", err)
+		logger.Error(err, "error getting kustomize deployment")
 	}
 
 	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
 
-	logger := r.Logger.With("name", kustomizeDeployment.Name, "namespace", kustomizeDeployment.Namespace)
-	logger.Debug("reconcile kustomize deployment")
+	logger.Info("reconcile kustomize deployment")
 
 	if kustomizeDeployment.Status.RepositoryURL == "" {
 		logger.Info("ignoring kustomize deployment without repository url")
@@ -51,7 +50,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &kustomizeDeployment)
 	if err != nil {
-		logger.Error("error getting owner deployment", "err", err)
+		logger.Error(err, "error getting owner deployment")
 
 		return ctrl.Result{}, err
 	}
@@ -64,7 +63,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, ownerDeployment)
 	if err != nil {
-		logger.Error("error getting owner cluster")
+		logger.Error(err, "error getting owner cluster")
 
 		return ctrl.Result{}, err
 	}
@@ -103,12 +102,12 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return nil
 	})
 	if err != nil {
-		logger.Error("error reconciling git repository", "err", err)
+		logger.Error(err, "error reconciling git repository")
 
 		return ctrl.Result{}, err
 	}
 
-	logger.Debug("reconciled git repository", "result", operationResult)
+	logger.Info("reconciled git repository", "result", operationResult)
 
 	kustomization := kustomizev1.Kustomization{
 		ObjectMeta: metav1.ObjectMeta{
@@ -145,15 +144,15 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return nil
 	})
 	if err != nil {
-		logger.Error("error reconciling kustomization", "err", err)
+		logger.Error(err, "error reconciling kustomization")
 
 		return ctrl.Result{}, err
 	}
 
-	logger.Debug("reconciled kustomization", "result", operationResult)
+	logger.Info("reconciled kustomization", "result", operationResult)
 
 	if ownerDeployment.Spec.DeploymentRef.Name == "" {
-		logger.Debug("owner deployment reference empty")
+		logger.Info("owner deployment reference empty")
 
 		patch := client.MergeFrom(ownerDeployment.DeepCopy())
 
@@ -166,7 +165,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		err := r.Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error("error patching owner deployment")
+			logger.Error(err, "error patching owner deployment")
 
 			return ctrl.Result{}, err
 		}
@@ -174,13 +173,13 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	kustomizationReadyCondition := meta.FindStatusCondition(kustomization.Status.Conditions, fluxcdmeta.ReadyCondition)
 	if kustomizationReadyCondition == nil {
-		logger.Debug("kustomization has no ready condition")
+		logger.Info("kustomization has no ready condition")
 
 		return ctrl.Result{}, nil
 	}
 
 	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1alpha1.ReadyCondition, kustomizationReadyCondition.Status) {
-		logger.Debug("owner deployment needs status condition update")
+		logger.Info("owner deployment needs status condition update")
 
 		readyCondition := metav1.Condition{
 			Type:    dockyardsv1alpha1.ReadyCondition,
@@ -195,7 +194,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		err := r.Status().Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error("error patching owner deployment", "err", err)
+			logger.Error(err, "error patching owner deployment")
 
 			return ctrl.Result{}, err
 		}
