@@ -84,6 +84,13 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
+	err = r.watchClusterIngresses(ctx, ownerCluster)
+	if err != nil {
+		logger.Error(err, "error watching remote cluster ingresses")
+
+		return ctrl.Result{}, err
+	}
+
 	namespacedName := types.NamespacedName{
 		Name:      ownerCluster.Name,
 		Namespace: ownerCluster.Namespace,
