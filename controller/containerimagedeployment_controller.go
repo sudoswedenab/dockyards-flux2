@@ -32,10 +32,8 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	var containerImageDeployment dockyardsv1alpha1.ContainerImageDeployment
 	err := r.Get(ctx, req.NamespacedName, &containerImageDeployment)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error(err, "error getting container image deployment")
-
-		return ctrl.Result{}, err
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	if !containerImageDeployment.DeletionTimestamp.IsZero() {

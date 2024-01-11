@@ -32,8 +32,8 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	var kustomizeDeployment dockyardsv1alpha1.KustomizeDeployment
 	err := r.Get(ctx, req.NamespacedName, &kustomizeDeployment)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error(err, "error getting kustomize deployment")
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	if !kustomizeDeployment.DeletionTimestamp.IsZero() {

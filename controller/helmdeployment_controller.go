@@ -33,10 +33,8 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	var helmDeployment dockyardsv1alpha1.HelmDeployment
 	err := r.Get(ctx, req.NamespacedName, &helmDeployment)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error(err, "error getting helm deployment")
-
-		return ctrl.Result{}, err
+	if err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	if !helmDeployment.DeletionTimestamp.IsZero() {
