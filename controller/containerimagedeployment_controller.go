@@ -40,6 +40,10 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, err
 	}
 
+	if !containerImageDeployment.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &containerImageDeployment)
 	if err != nil {
 		logger.Error("error getting owner deployment", "err", err)

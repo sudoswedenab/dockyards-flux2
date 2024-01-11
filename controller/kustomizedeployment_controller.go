@@ -36,6 +36,10 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		r.Logger.Error("error getting kustomize deployment", "err", err)
 	}
 
+	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	logger := r.Logger.With("name", kustomizeDeployment.Name, "namespace", kustomizeDeployment.Namespace)
 	logger.Debug("reconcile kustomize deployment")
 

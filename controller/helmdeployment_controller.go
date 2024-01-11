@@ -41,6 +41,10 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	if !helmDeployment.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	logger.Debug("reconcile helm deployment")
 
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &helmDeployment)
