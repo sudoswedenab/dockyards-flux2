@@ -5,15 +5,15 @@ import (
 	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	dockyardsv1alpha1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/source-controller/api/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
@@ -30,7 +30,7 @@ type ContainerImageDeploymentReconciler struct {
 func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
-	var containerImageDeployment dockyardsv1alpha1.ContainerImageDeployment
+	var containerImageDeployment dockyardsv1.ContainerImageDeployment
 	err := r.Get(ctx, req.NamespacedName, &containerImageDeployment)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -61,97 +61,96 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	var gitRepository v1.GitRepository
-	err = r.Get(ctx, req.NamespacedName, &gitRepository)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error(err, "error getting git repository")
+	gitRepository := sourcev1.GitRepository{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      containerImageDeployment.Name,
+			Namespace: containerImageDeployment.Namespace,
+		},
+	}
+
+	operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &gitRepository, func() error {
+		gitRepository.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: dockyardsv1.GroupVersion.String(),
+				Kind:       dockyardsv1.ContainerImageDeploymentKind,
+				Name:       containerImageDeployment.Name,
+				UID:        containerImageDeployment.UID,
+			},
+		}
+
+		gitRepository.Spec.Interval = metav1.Duration{
+			Duration: time.Minute * 5,
+		}
+
+		gitRepository.Spec.URL = containerImageDeployment.Status.RepositoryURL
+
+		gitRepository.Spec.Reference = &sourcev1.GitRepositoryRef{
+			Branch: "main",
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.Error(err, "error reconciling git repository")
 
 		return ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		logger.Info("git repository not found")
-
-		gitRepository = v1.GitRepository{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      containerImageDeployment.Name,
-				Namespace: containerImageDeployment.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-						Kind:       dockyardsv1alpha1.ContainerImageDeploymentKind,
-						Name:       containerImageDeployment.Name,
-						UID:        containerImageDeployment.UID,
-					},
-				},
-			},
-			Spec: v1.GitRepositorySpec{
-				Interval: metav1.Duration{Duration: time.Minute * 5},
-				URL:      containerImageDeployment.Status.RepositoryURL,
-				Reference: &v1.GitRepositoryRef{
-					Branch: "main",
-				},
-			},
-		}
-
-		err := r.Create(ctx, &gitRepository)
-		if err != nil {
-			logger.Error(err, "error creating git repository")
-
-			return ctrl.Result{}, err
-		}
+	if operationResult != controllerutil.OperationResultNone {
+		logger.Info("reconciled git repository", "result", operationResult)
 	}
 
-	var kustomization kustomizev1.Kustomization
-	err = r.Get(ctx, req.NamespacedName, &kustomization)
-	if client.IgnoreNotFound(err) != nil {
-		logger.Error(err, "error getting kustomization")
+	kustomization := kustomizev1.Kustomization{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      containerImageDeployment.Name,
+			Namespace: containerImageDeployment.Namespace,
+		},
+	}
+
+	operationResult, err = controllerutil.CreateOrPatch(ctx, r.Client, &kustomization, func() error {
+		kustomization.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: dockyardsv1.GroupVersion.String(),
+				Kind:       dockyardsv1.ContainerImageDeploymentKind,
+				Name:       containerImageDeployment.Name,
+				UID:        containerImageDeployment.UID,
+			},
+		}
+
+		kustomization.Spec.Interval = metav1.Duration{
+			Duration: time.Minute * 10,
+		}
+
+		kustomization.Spec.TargetNamespace = ownerDeployment.Spec.TargetNamespace
+
+		kustomization.Spec.SourceRef = kustomizev1.CrossNamespaceSourceReference{
+			APIVersion: sourcev1.GroupVersion.String(),
+			Kind:       sourcev1.GitRepositoryKind,
+			Name:       gitRepository.Name,
+		}
+
+		kustomization.Spec.Prune = true
+
+		kustomization.Spec.Timeout = &metav1.Duration{
+			Duration: time.Minute,
+		}
+
+		kustomization.Spec.KubeConfig = &fluxcdmeta.KubeConfigReference{
+			SecretRef: fluxcdmeta.SecretKeyReference{
+				Name: ownerCluster.Name + "-kubeconfig",
+			},
+		}
+
+		return nil
+	})
+	if err != nil {
+		logger.Error(err, "error reconciling kustomization")
 
 		return ctrl.Result{}, err
 	}
 
-	if apierrors.IsNotFound(err) {
-		logger.Info("kustomization not found")
-
-		kustomization = kustomizev1.Kustomization{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      containerImageDeployment.Name,
-				Namespace: containerImageDeployment.Namespace,
-				OwnerReferences: []metav1.OwnerReference{
-					{
-						APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-						Kind:       dockyardsv1alpha1.ContainerImageDeploymentKind,
-						Name:       containerImageDeployment.Name,
-						UID:        containerImageDeployment.UID,
-					},
-				},
-			},
-			Spec: kustomizev1.KustomizationSpec{
-				Interval:        metav1.Duration{Duration: time.Minute * 10},
-				TargetNamespace: ownerDeployment.Spec.TargetNamespace,
-				SourceRef: kustomizev1.CrossNamespaceSourceReference{
-					APIVersion: v1.GroupVersion.String(),
-					Kind:       v1.GitRepositoryKind,
-					Name:       gitRepository.Name,
-				},
-				Prune:   true,
-				Timeout: &metav1.Duration{Duration: time.Minute},
-				KubeConfig: &fluxcdmeta.KubeConfigReference{
-					SecretRef: fluxcdmeta.SecretKeyReference{
-						Name: ownerCluster.Name + "-kubeconfig",
-					},
-				},
-			},
-		}
-
-		err := r.Create(ctx, &kustomization)
-		if err != nil {
-			logger.Error(err, "error creating kustomization")
-
-			return ctrl.Result{}, err
-		}
-
-		logger.Info("created kustomization")
+	if operationResult != controllerutil.OperationResultNone {
+		logger.Info("reconciled kustomization", "result", operationResult)
 	}
 
 	if ownerDeployment.Spec.DeploymentRef.Name == "" {
@@ -159,9 +158,9 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 		patch := client.MergeFrom(ownerDeployment.DeepCopy())
 
-		ownerDeployment.Spec.DeploymentRef = dockyardsv1alpha1.DeploymentReference{
-			APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-			Kind:       dockyardsv1alpha1.ContainerImageDeploymentKind,
+		ownerDeployment.Spec.DeploymentRef = dockyardsv1.DeploymentReference{
+			APIVersion: dockyardsv1.GroupVersion.String(),
+			Kind:       dockyardsv1.ContainerImageDeploymentKind,
 			Name:       containerImageDeployment.Name,
 			UID:        containerImageDeployment.UID,
 		}
@@ -183,11 +182,11 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1alpha1.ReadyCondition, kustomizationReadyCondition.Status) {
+	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1.ReadyCondition, kustomizationReadyCondition.Status) {
 		logger.Info("owner deployment needs status condition update")
 
 		readyCondition := metav1.Condition{
-			Type:    dockyardsv1alpha1.ReadyCondition,
+			Type:    dockyardsv1.ReadyCondition,
 			Status:  kustomizationReadyCondition.Status,
 			Message: kustomizationReadyCondition.Message,
 			Reason:  kustomizationReadyCondition.Reason,
@@ -210,13 +209,15 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 func (r *ContainerImageDeploymentReconciler) SetupWithManager(manager ctrl.Manager) error {
 	scheme := manager.GetScheme()
-	dockyardsv1alpha1.AddToScheme(scheme)
-	v1.AddToScheme(scheme)
-	kustomizev1.AddToScheme(scheme)
+
+	_ = dockyardsv1.AddToScheme(scheme)
+	_ = sourcev1.AddToScheme(scheme)
+	_ = kustomizev1.AddToScheme(scheme)
 
 	err := ctrl.NewControllerManagedBy(manager).
-		For(&dockyardsv1alpha1.ContainerImageDeployment{}).
-		Owns(&v1.GitRepository{}).
+		For(&dockyardsv1.ContainerImageDeployment{}).
+		Owns(&sourcev1.GitRepository{}).
+		Owns(&kustomizev1.Kustomization{}).
 		Complete(r)
 	if err != nil {
 		return err
