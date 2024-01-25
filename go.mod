@@ -8,7 +8,7 @@ require (
 	github.com/fluxcd/kustomize-controller/api v1.0.1
 	github.com/fluxcd/pkg/apis/meta v1.1.2
 	github.com/fluxcd/source-controller/api v1.0.1
-	github.com/go-logr/logr v1.3.0
+	github.com/go-logr/logr v1.4.1
 	github.com/google/go-cmp v0.6.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4

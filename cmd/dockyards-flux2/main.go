@@ -12,7 +12,7 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/source-controller/api/v1"
 	"github.com/fluxcd/source-controller/api/v1beta2"
-	"github.com/go-logr/logr/slogr"
+	"github.com/go-logr/logr"
 	"sigs.k8s.io/cluster-api/controllers/remote"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -24,9 +24,9 @@ func main() {
 	defer stop()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	logr := slogr.NewLogr(logger.Handler())
+	slogr := logr.FromSlogHandler(logger.Handler())
 
-	ctrl.SetLogger(logr)
+	ctrl.SetLogger(slogr)
 
 	cfg, err := config.GetConfig()
 	if err != nil {
