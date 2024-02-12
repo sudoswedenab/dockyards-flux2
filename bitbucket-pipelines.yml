@@ -25,15 +25,9 @@ definitions:
       - dockyards-flux2.tar
   - step: &push
       name: push
-      image: docker.io/amazon/aws-cli:2.13.36
-      oidc: true
       script:
       - source env.sh
-      - echo $BITBUCKET_STEP_OIDC_TOKEN > /tmp/web-identity-token
-      - aws configure --profile bitbucket set region eu-north-1
-      - aws configure --profile bitbucket set role_arn arn:aws:iam::075899289117:role/BitbucketPipelinesDockyardsFlux2
-      - aws configure --profile bitbucket set web_identity_token_file /tmp/web-identity-token
-      - aws ecr get-login-password --profile bitbucket | docker login --username "AWS" --password-stdin "075899289117.dkr.ecr.eu-north-1.amazonaws.com"
+      - cat ecr-login-password | docker login --username AWS --password-stdin 075899289117.dkr.ecr.eu-north-1.amazonaws.com
       - docker load --input dockyards-flux2.tar
       - docker tag dockyards-flux2 "${IMAGE}:${VERSION}"
       - docker push "${IMAGE}:${VERSION}"
@@ -47,10 +41,23 @@ definitions:
       - go mod vendor
       artifacts:
       - vendor/**
+  - step: &ecr-login
+      name: ecr-login
+      image: docker.io/amazon/aws-cli:2.15.19
+      oidc: true
+      script:
+      - echo $BITBUCKET_STEP_OIDC_TOKEN > /tmp/web-identity-token
+      - aws configure --profile bitbucket set region eu-north-1
+      - aws configure --profile bitbucket set role_arn arn:aws:iam::075899289117:role/BitbucketPipelinesDockyardsFlux2
+      - aws configure --profile bitbucket set web_identity_token_file /tmp/web-identity-token
+      - aws ecr get-login-password --profile bitbucket > ecr-login-password
+      artifacts:
+      - ecr-login-password
 
 pipelines:
   default:
   - step: *environment
   - step: *vendor
   - step: *build
+  - step: *ecr-login
   - step: *push
