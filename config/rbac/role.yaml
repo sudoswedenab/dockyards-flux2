@@ -5,6 +5,14 @@ metadata:
   name: dockyards-flux2
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - dockyards.io
   resources:
   - clusters

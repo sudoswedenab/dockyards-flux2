@@ -19,6 +19,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
+// +kubebuilder:rbac:groups=dockyards.io,resources=helmdeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
+// +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+
 var (
 	HelmOriginLabelNameKey      = v2beta1.GroupVersion.Group + "/name"
 	HelmOriginLabelNamespaceKey = v2beta1.GroupVersion.Group + "/namespace"
