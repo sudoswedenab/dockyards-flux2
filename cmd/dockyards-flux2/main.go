@@ -6,12 +6,7 @@ import (
 	"os"
 	"os/signal"
 
-	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-flux2/controller"
-	"github.com/fluxcd/helm-controller/api/v2beta1"
-	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	"github.com/fluxcd/source-controller/api/v1"
-	"github.com/fluxcd/source-controller/api/v1beta2"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/cluster-api/controllers/remote"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,13 +43,6 @@ func main() {
 
 		os.Exit(1)
 	}
-
-	scheme := manager.GetScheme()
-	v1alpha1.AddToScheme(scheme)
-	v2beta1.AddToScheme(scheme)
-	v1beta2.AddToScheme(scheme)
-	v1.AddToScheme(scheme)
-	kustomizev1.AddToScheme(scheme)
 
 	err = (&controller.HelmDeploymentReconciler{
 		Client: manager.GetClient(),

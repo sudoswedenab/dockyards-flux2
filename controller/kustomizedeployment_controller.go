@@ -5,10 +5,10 @@ import (
 	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	dockyardsv1alpha1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/source-controller/api/v1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -30,7 +30,7 @@ type KustomizeDeploymentReconciler struct {
 func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
-	var kustomizeDeployment dockyardsv1alpha1.KustomizeDeployment
+	var kustomizeDeployment dockyardsv1.KustomizeDeployment
 	err := r.Get(ctx, req.NamespacedName, &kustomizeDeployment)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -76,14 +76,14 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	controller := true
 
-	gitRepository := v1.GitRepository{
+	gitRepository := sourcev1.GitRepository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kustomizeDeployment.Name,
 			Namespace: kustomizeDeployment.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-					Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
+					APIVersion: dockyardsv1.GroupVersion.String(),
+					Kind:       dockyardsv1.KustomizeDeploymentKind,
 					Name:       kustomizeDeployment.Name,
 					UID:        kustomizeDeployment.UID,
 					Controller: &controller,
@@ -95,7 +95,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &gitRepository, func() error {
 		gitRepository.Spec.Interval = metav1.Duration{Duration: time.Minute * 5}
 		gitRepository.Spec.URL = kustomizeDeployment.Status.RepositoryURL
-		gitRepository.Spec.Reference = &v1.GitRepositoryRef{
+		gitRepository.Spec.Reference = &sourcev1.GitRepositoryRef{
 			Branch: "main",
 		}
 
@@ -115,8 +115,8 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 			Namespace: kustomizeDeployment.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-					Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
+					APIVersion: dockyardsv1.GroupVersion.String(),
+					Kind:       dockyardsv1.KustomizeDeploymentKind,
 					Name:       kustomizeDeployment.Name,
 					UID:        kustomizeDeployment.UID,
 					Controller: &controller,
@@ -129,8 +129,8 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		kustomization.Spec.Interval = metav1.Duration{Duration: time.Minute * 10}
 		kustomization.Spec.TargetNamespace = ownerDeployment.Spec.TargetNamespace
 		kustomization.Spec.SourceRef = kustomizev1.CrossNamespaceSourceReference{
-			APIVersion: v1.GroupVersion.String(),
-			Kind:       v1.GitRepositoryKind,
+			APIVersion: sourcev1.GroupVersion.String(),
+			Kind:       sourcev1.GitRepositoryKind,
 			Name:       gitRepository.Name,
 		}
 		kustomization.Spec.Prune = true
@@ -156,9 +156,9 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		patch := client.MergeFrom(ownerDeployment.DeepCopy())
 
-		ownerDeployment.Spec.DeploymentRef = dockyardsv1alpha1.DeploymentReference{
-			APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-			Kind:       dockyardsv1alpha1.KustomizeDeploymentKind,
+		ownerDeployment.Spec.DeploymentRef = dockyardsv1.DeploymentReference{
+			APIVersion: dockyardsv1.GroupVersion.String(),
+			Kind:       dockyardsv1.KustomizeDeploymentKind,
 			Name:       kustomizeDeployment.Name,
 			UID:        kustomizeDeployment.UID,
 		}
@@ -178,11 +178,11 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1alpha1.ReadyCondition, kustomizationReadyCondition.Status) {
+	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1.ReadyCondition, kustomizationReadyCondition.Status) {
 		logger.Info("owner deployment needs status condition update")
 
 		readyCondition := metav1.Condition{
-			Type:    dockyardsv1alpha1.ReadyCondition,
+			Type:    dockyardsv1.ReadyCondition,
 			Status:  kustomizationReadyCondition.Status,
 			Message: kustomizationReadyCondition.Message,
 			Reason:  kustomizationReadyCondition.Reason,
@@ -203,10 +203,16 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	return ctrl.Result{}, nil
 }
 
-func (r *KustomizeDeploymentReconciler) SetupWithManager(manager ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(manager).
-		For(&dockyardsv1alpha1.KustomizeDeployment{}).
-		Owns(&v1.GitRepository{}).
+func (r *KustomizeDeploymentReconciler) SetupWithManager(m ctrl.Manager) error {
+	scheme := m.GetScheme()
+
+	_ = dockyardsv1.AddToScheme(scheme)
+	_ = kustomizev1.AddToScheme(scheme)
+	_ = sourcev1.AddToScheme(scheme)
+
+	return ctrl.NewControllerManagedBy(m).
+		For(&dockyardsv1.KustomizeDeployment{}).
+		Owns(&sourcev1.GitRepository{}).
 		Owns(&kustomizev1.Kustomization{}).
 		Complete(r)
 }

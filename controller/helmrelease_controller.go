@@ -8,7 +8,7 @@ import (
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	"bitbucket.org/sudosweden/dockyards-flux2/pkg/dockyardsutil"
 	"bitbucket.org/sudosweden/dockyards-flux2/pkg/ingressutil"
-	"github.com/fluxcd/helm-controller/api/v2beta1"
+	helmv2 "github.com/fluxcd/helm-controller/api/v2beta2"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/controllers/remote"
@@ -26,8 +26,8 @@ import (
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
 
 var (
-	HelmOriginLabelNameKey      = v2beta1.GroupVersion.Group + "/name"
-	HelmOriginLabelNamespaceKey = v2beta1.GroupVersion.Group + "/namespace"
+	HelmOriginLabelNameKey      = helmv2.GroupVersion.Group + "/name"
+	HelmOriginLabelNamespaceKey = helmv2.GroupVersion.Group + "/namespace"
 )
 
 type HelmReleaseReconciler struct {
@@ -39,7 +39,7 @@ type HelmReleaseReconciler struct {
 func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
-	var helmRelease v2beta1.HelmRelease
+	var helmRelease helmv2.HelmRelease
 	err := r.Get(ctx, req.NamespacedName, &helmRelease)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -204,10 +204,10 @@ func (r *HelmReleaseReconciler) ingressToHelmRelease(ctx context.Context, o clie
 func (r *HelmReleaseReconciler) SetupWithManager(m ctrl.Manager) error {
 	scheme := m.GetScheme()
 
-	_ = v2beta1.AddToScheme(scheme)
+	_ = helmv2.AddToScheme(scheme)
 	_ = dockyardsv1.AddToScheme(scheme)
 
-	c, err := ctrl.NewControllerManagedBy(m).For(&v2beta1.HelmRelease{}).Build(r)
+	c, err := ctrl.NewControllerManagedBy(m).For(&helmv2.HelmRelease{}).Build(r)
 	if err != nil {
 		return err
 	}

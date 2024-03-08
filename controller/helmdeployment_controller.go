@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	dockyardsv1alpha1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
-	"github.com/fluxcd/helm-controller/api/v2beta1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	helmv2 "github.com/fluxcd/helm-controller/api/v2beta2"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
-	"github.com/fluxcd/source-controller/api/v1beta2"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -31,7 +31,7 @@ type HelmDeploymentReconciler struct {
 func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
-	var helmDeployment dockyardsv1alpha1.HelmDeployment
+	var helmDeployment dockyardsv1.HelmDeployment
 	err := r.Get(ctx, req.NamespacedName, &helmDeployment)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -71,14 +71,14 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	controller := true
 
-	helmRepository := v1beta2.HelmRepository{
+	helmRepository := sourcev1.HelmRepository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      helmDeployment.Name,
 			Namespace: helmDeployment.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-					Kind:       dockyardsv1alpha1.HelmDeploymentKind,
+					APIVersion: dockyardsv1.GroupVersion.String(),
+					Kind:       dockyardsv1.HelmDeploymentKind,
 					Name:       helmDeployment.Name,
 					UID:        helmDeployment.UID,
 					Controller: &controller,
@@ -100,14 +100,14 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	logger.Info("reconciled helm repository", "result", operationResult)
 
-	helmRelease := v2beta1.HelmRelease{
+	helmRelease := helmv2.HelmRelease{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      helmDeployment.Name,
 			Namespace: helmDeployment.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				{
-					APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-					Kind:       dockyardsv1alpha1.HelmDeploymentKind,
+					APIVersion: dockyardsv1.GroupVersion.String(),
+					Kind:       dockyardsv1.HelmDeploymentKind,
 					Name:       helmDeployment.Name,
 					UID:        helmDeployment.UID,
 					Controller: &controller,
@@ -117,13 +117,13 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	operationResult, err = controllerutil.CreateOrPatch(ctx, r.Client, &helmRelease, func() error {
-		helmRelease.Spec.Chart = v2beta1.HelmChartTemplate{
-			Spec: v2beta1.HelmChartTemplateSpec{
+		helmRelease.Spec.Chart = helmv2.HelmChartTemplate{
+			Spec: helmv2.HelmChartTemplateSpec{
 				Chart:   helmDeployment.Spec.Chart,
 				Version: helmDeployment.Spec.Version,
-				SourceRef: v2beta1.CrossNamespaceObjectReference{
-					APIVersion: v1beta2.GroupVersion.String(),
-					Kind:       v1beta2.HelmRepositoryKind,
+				SourceRef: helmv2.CrossNamespaceObjectReference{
+					APIVersion: sourcev1.GroupVersion.String(),
+					Kind:       sourcev1.HelmRepositoryKind,
 					Name:       helmRepository.Name,
 				},
 			},
@@ -136,9 +136,9 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		}
 		helmRelease.Spec.TargetNamespace = ownerDeployment.Spec.TargetNamespace
 		helmRelease.Spec.StorageNamespace = ownerDeployment.Spec.TargetNamespace
-		helmRelease.Spec.Install = &v2beta1.Install{
+		helmRelease.Spec.Install = &helmv2.Install{
 			CreateNamespace: true,
-			Remediation: &v2beta1.InstallRemediation{
+			Remediation: &helmv2.InstallRemediation{
 				Retries: -1,
 			},
 		}
@@ -160,9 +160,9 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		patch := client.MergeFrom(ownerDeployment.DeepCopy())
 
-		ownerDeployment.Spec.DeploymentRef = dockyardsv1alpha1.DeploymentReference{
-			APIVersion: dockyardsv1alpha1.GroupVersion.String(),
-			Kind:       dockyardsv1alpha1.HelmDeploymentKind,
+		ownerDeployment.Spec.DeploymentRef = dockyardsv1.DeploymentReference{
+			APIVersion: dockyardsv1.GroupVersion.String(),
+			Kind:       dockyardsv1.HelmDeploymentKind,
 			Name:       helmDeployment.Name,
 			UID:        helmDeployment.UID,
 		}
@@ -182,11 +182,11 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1alpha1.ReadyCondition, helmReadyCondition.Status) {
+	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1.ReadyCondition, helmReadyCondition.Status) {
 		logger.Info("owner deployment needs status condition update")
 
 		readyCondition := metav1.Condition{
-			Type:    dockyardsv1alpha1.ReadyCondition,
+			Type:    dockyardsv1.ReadyCondition,
 			Status:  helmReadyCondition.Status,
 			Message: helmReadyCondition.Message,
 			Reason:  helmReadyCondition.Reason,
@@ -207,9 +207,9 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	return ctrl.Result{}, nil
 }
 
-func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Object) (*dockyardsv1alpha1.Deployment, error) {
+func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Object) (*dockyardsv1.Deployment, error) {
 	for _, ownerReference := range object.GetOwnerReferences() {
-		if ownerReference.Kind != dockyardsv1alpha1.DeploymentKind {
+		if ownerReference.Kind != dockyardsv1.DeploymentKind {
 			continue
 		}
 
@@ -218,7 +218,7 @@ func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Obje
 			Namespace: object.GetNamespace(),
 		}
 
-		var deployment dockyardsv1alpha1.Deployment
+		var deployment dockyardsv1.Deployment
 		err := r.Get(ctx, objectKey, &deployment)
 		if err != nil {
 			return nil, err
@@ -230,10 +230,16 @@ func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Obje
 	return nil, nil
 }
 
-func (r *HelmDeploymentReconciler) SetupWithManager(manager ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(manager).
-		For(&dockyardsv1alpha1.HelmDeployment{}).
-		Owns(&v2beta1.HelmRelease{}).
-		Owns(&v1beta2.HelmRepository{}).
+func (r *HelmDeploymentReconciler) SetupWithManager(m ctrl.Manager) error {
+	scheme := m.GetScheme()
+
+	_ = dockyardsv1.AddToScheme(scheme)
+	_ = helmv2.AddToScheme(scheme)
+	_ = sourcev1.AddToScheme(scheme)
+
+	return ctrl.NewControllerManagedBy(m).
+		For(&dockyardsv1.HelmDeployment{}).
+		Owns(&helmv2.HelmRelease{}).
+		Owns(&sourcev1.HelmRepository{}).
 		Complete(r)
 }
