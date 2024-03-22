@@ -113,33 +113,39 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kustomizeDeployment.Name,
 			Namespace: kustomizeDeployment.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: dockyardsv1.GroupVersion.String(),
-					Kind:       dockyardsv1.KustomizeDeploymentKind,
-					Name:       kustomizeDeployment.Name,
-					UID:        kustomizeDeployment.UID,
-					Controller: &controller,
-				},
-			},
 		},
 	}
 
 	operationResult, err = controllerutil.CreateOrPatch(ctx, r.Client, &kustomization, func() error {
+		kustomization.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: dockyardsv1.GroupVersion.String(),
+				Kind:       dockyardsv1.KustomizeDeploymentKind,
+				Name:       kustomizeDeployment.Name,
+				UID:        kustomizeDeployment.UID,
+				Controller: &controller,
+			},
+		}
+
 		kustomization.Spec.Interval = metav1.Duration{Duration: time.Minute * 10}
 		kustomization.Spec.TargetNamespace = ownerDeployment.Spec.TargetNamespace
+
 		kustomization.Spec.SourceRef = kustomizev1.CrossNamespaceSourceReference{
 			APIVersion: sourcev1.GroupVersion.String(),
 			Kind:       sourcev1.GitRepositoryKind,
 			Name:       gitRepository.Name,
 		}
+
 		kustomization.Spec.Prune = true
 		kustomization.Spec.Timeout = &metav1.Duration{Duration: time.Minute}
+
 		kustomization.Spec.KubeConfig = &fluxcdmeta.KubeConfigReference{
 			SecretRef: fluxcdmeta.SecretKeyReference{
 				Name: ownerCluster.Name + "-kubeconfig",
 			},
 		}
+
+		kustomization.Spec.RetryInterval = &metav1.Duration{Duration: time.Minute}
 
 		return nil
 	})
