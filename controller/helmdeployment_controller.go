@@ -69,25 +69,27 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	controller := true
-
 	helmRepository := sourcev1.HelmRepository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      helmDeployment.Name,
 			Namespace: helmDeployment.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: dockyardsv1.GroupVersion.String(),
-					Kind:       dockyardsv1.HelmDeploymentKind,
-					Name:       helmDeployment.Name,
-					UID:        helmDeployment.UID,
-					Controller: &controller,
-				},
-			},
 		},
 	}
 
 	operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &helmRepository, func() error {
+		controller := true
+
+		helmRepository.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion:         dockyardsv1.GroupVersion.String(),
+				Kind:               dockyardsv1.HelmDeploymentKind,
+				Name:               helmDeployment.Name,
+				UID:                helmDeployment.UID,
+				Controller:         &controller,
+				BlockOwnerDeletion: &controller,
+			},
+		}
+
 		helmRepository.Spec.URL = helmDeployment.Spec.Repository
 
 		return nil
@@ -104,19 +106,23 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      helmDeployment.Name,
 			Namespace: helmDeployment.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: dockyardsv1.GroupVersion.String(),
-					Kind:       dockyardsv1.HelmDeploymentKind,
-					Name:       helmDeployment.Name,
-					UID:        helmDeployment.UID,
-					Controller: &controller,
-				},
-			},
 		},
 	}
 
 	operationResult, err = controllerutil.CreateOrPatch(ctx, r.Client, &helmRelease, func() error {
+		controller := true
+
+		helmRelease.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion:         dockyardsv1.GroupVersion.String(),
+				Kind:               dockyardsv1.HelmDeploymentKind,
+				Name:               helmDeployment.Name,
+				UID:                helmDeployment.UID,
+				Controller:         &controller,
+				BlockOwnerDeletion: &controller,
+			},
+		}
+
 		helmRelease.Spec.Chart = helmv2.HelmChartTemplate{
 			Spec: helmv2.HelmChartTemplateSpec{
 				Chart:   helmDeployment.Spec.Chart,
@@ -128,20 +134,25 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 				},
 			},
 		}
+
 		helmRelease.Spec.Values = helmDeployment.Spec.Values
+
 		helmRelease.Spec.KubeConfig = &fluxcdmeta.KubeConfigReference{
 			SecretRef: fluxcdmeta.SecretKeyReference{
 				Name: ownerCluster.Name + "-kubeconfig",
 			},
 		}
+
 		helmRelease.Spec.TargetNamespace = ownerDeployment.Spec.TargetNamespace
 		helmRelease.Spec.StorageNamespace = ownerDeployment.Spec.TargetNamespace
+
 		helmRelease.Spec.Install = &helmv2.Install{
 			CreateNamespace: true,
 			Remediation: &helmv2.InstallRemediation{
 				Retries: -1,
 			},
 		}
+
 		helmRelease.Spec.Interval = metav1.Duration{Duration: time.Minute * 5}
 		helmRelease.Spec.ReleaseName = strings.TrimPrefix(helmDeployment.Name, ownerCluster.Name+"-")
 

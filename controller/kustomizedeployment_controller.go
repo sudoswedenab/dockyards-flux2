@@ -74,27 +74,30 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	controller := true
-
 	gitRepository := sourcev1.GitRepository{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kustomizeDeployment.Name,
 			Namespace: kustomizeDeployment.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion: dockyardsv1.GroupVersion.String(),
-					Kind:       dockyardsv1.KustomizeDeploymentKind,
-					Name:       kustomizeDeployment.Name,
-					UID:        kustomizeDeployment.UID,
-					Controller: &controller,
-				},
-			},
 		},
 	}
 
 	operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &gitRepository, func() error {
+		controller := true
+
+		gitRepository.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion:         dockyardsv1.GroupVersion.String(),
+				Kind:               dockyardsv1.KustomizeDeploymentKind,
+				Name:               kustomizeDeployment.Name,
+				UID:                kustomizeDeployment.UID,
+				Controller:         &controller,
+				BlockOwnerDeletion: &controller,
+			},
+		}
+
 		gitRepository.Spec.Interval = metav1.Duration{Duration: time.Minute * 5}
 		gitRepository.Spec.URL = kustomizeDeployment.Status.RepositoryURL
+
 		gitRepository.Spec.Reference = &sourcev1.GitRepositoryRef{
 			Branch: "main",
 		}
@@ -117,13 +120,16 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	operationResult, err = controllerutil.CreateOrPatch(ctx, r.Client, &kustomization, func() error {
+		controller := true
+
 		kustomization.OwnerReferences = []metav1.OwnerReference{
 			{
-				APIVersion: dockyardsv1.GroupVersion.String(),
-				Kind:       dockyardsv1.KustomizeDeploymentKind,
-				Name:       kustomizeDeployment.Name,
-				UID:        kustomizeDeployment.UID,
-				Controller: &controller,
+				APIVersion:         dockyardsv1.GroupVersion.String(),
+				Kind:               dockyardsv1.KustomizeDeploymentKind,
+				Name:               kustomizeDeployment.Name,
+				UID:                kustomizeDeployment.UID,
+				Controller:         &controller,
+				BlockOwnerDeletion: &controller,
 			},
 		}
 

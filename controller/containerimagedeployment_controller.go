@@ -69,12 +69,16 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &gitRepository, func() error {
+		controller := true
+
 		gitRepository.OwnerReferences = []metav1.OwnerReference{
 			{
-				APIVersion: dockyardsv1.GroupVersion.String(),
-				Kind:       dockyardsv1.ContainerImageDeploymentKind,
-				Name:       containerImageDeployment.Name,
-				UID:        containerImageDeployment.UID,
+				APIVersion:         dockyardsv1.GroupVersion.String(),
+				Kind:               dockyardsv1.ContainerImageDeploymentKind,
+				Name:               containerImageDeployment.Name,
+				UID:                containerImageDeployment.UID,
+				Controller:         &controller,
+				BlockOwnerDeletion: &controller,
 			},
 		}
 
@@ -108,12 +112,16 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	operationResult, err = controllerutil.CreateOrPatch(ctx, r.Client, &kustomization, func() error {
+		controller := true
+
 		kustomization.OwnerReferences = []metav1.OwnerReference{
 			{
-				APIVersion: dockyardsv1.GroupVersion.String(),
-				Kind:       dockyardsv1.ContainerImageDeploymentKind,
-				Name:       containerImageDeployment.Name,
-				UID:        containerImageDeployment.UID,
+				APIVersion:         dockyardsv1.GroupVersion.String(),
+				Kind:               dockyardsv1.ContainerImageDeploymentKind,
+				Name:               containerImageDeployment.Name,
+				UID:                containerImageDeployment.UID,
+				Controller:         &controller,
+				BlockOwnerDeletion: &controller,
 			},
 		}
 
