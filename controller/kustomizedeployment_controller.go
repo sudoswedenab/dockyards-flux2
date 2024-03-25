@@ -20,8 +20,8 @@ import (
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;patch;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=kustomizedeployments,verbs=get;list;watch
-// +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=create;get;list;watch
-// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories,verbs=create;get;list;watch
+// +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=create;get;list;patch;watch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories,verbs=create;get;list;patch;watch
 
 type KustomizeDeploymentReconciler struct {
 	client.Client

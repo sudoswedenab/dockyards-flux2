@@ -22,7 +22,7 @@ import (
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=helmdeployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=create;get;list;patch;watch
-// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmrepositories,verbs=create;get;list;watch
+// +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmrepositories,verbs=create;get;list;patch;watch
 
 type HelmDeploymentReconciler struct {
 	client.Client

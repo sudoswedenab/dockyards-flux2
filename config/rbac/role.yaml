@@ -77,6 +77,7 @@ rules:
   - create
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - source.toolkit.fluxcd.io
@@ -86,6 +87,7 @@ rules:
   - create
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - source.toolkit.fluxcd.io
@@ -95,4 +97,5 @@ rules:
   - create
   - get
   - list
+  - patch
   - watch
