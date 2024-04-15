@@ -2,8 +2,8 @@ image: docker.io/library/golang:1.21
 
 definitions:
   steps:
-  - step: &environment
-      name: environment
+  - step: &default
+      name: default
       script:
       - echo "export VERSION=$(git branch --show-current)-$(git rev-parse --short HEAD)-$(date +%s)" >> env.sh
       - echo "export IMAGE=075899289117.dkr.ecr.eu-north-1.amazonaws.com/dockyards-flux2" >> env.sh
@@ -62,12 +62,28 @@ definitions:
       script:
       - source env.sh
       - flux push artifact "oci://${IMAGE}:${VERSION}-manifests" --path config --source "$BITBUCKET_GIT_HTTP_ORIGIN" --revision "$REVISION" --creds "AWS:$(cat ecr-login-password)"
+  - step: &tag
+      name: tag
+      script:
+      - echo "export VERSION=$(git describe --exact-match)" >> env.sh
+      - echo "export IMAGE=075899289117.dkr.ecr.eu-north-1.amazonaws.com/dockyards-flux2" >> env.sh
+      - echo "export REVISION=$(git branch --show-current)@$(git rev-parse --show-object-format):$(git rev-parse HEAD)" >> env.sh
+      artifacts:
+      - env.sh
 
 pipelines:
   default:
-  - step: *environment
+  - step: *default
   - step: *vendor
   - step: *build
   - step: *ecr-login
   - step: *push
   - step: *flux
+  tags:
+    'v*':
+    - step: *tag
+    - step: *vendor
+    - step: *build
+    - step: *ecr-login
+    - step: *push
+    - step: *flux
