@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/signal"
 
-	"bitbucket.org/sudosweden/dockyards-flux2/controller"
+	"bitbucket.org/sudosweden/dockyards-flux2/controllers"
 	"github.com/go-logr/logr"
 	"sigs.k8s.io/cluster-api/controllers/remote"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -44,7 +44,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controller.HelmDeploymentReconciler{
+	err = (&controllers.HelmDeploymentReconciler{
 		Client: manager.GetClient(),
 	}).SetupWithManager(manager)
 	if err != nil {
@@ -53,7 +53,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controller.KustomizeDeploymentReconciler{
+	err = (&controllers.KustomizeDeploymentReconciler{
 		Client: manager.GetClient(),
 	}).SetupWithManager(manager)
 	if err != nil {
@@ -62,7 +62,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controller.ContainerImageDeploymentReconciler{
+	err = (&controllers.ContainerImageDeploymentReconciler{
 		Client: manager.GetClient(),
 	}).SetupWithManager(manager)
 	if err != nil {
@@ -71,7 +71,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controller.HelmReleaseReconciler{
+	err = (&controllers.HelmReleaseReconciler{
 		Client:  manager.GetClient(),
 		Tracker: tracker,
 	}).SetupWithManager(manager)
