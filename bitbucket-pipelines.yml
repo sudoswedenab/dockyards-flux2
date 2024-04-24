@@ -1,4 +1,4 @@
-image: docker.io/library/golang:1.21
+image: docker.io/library/golang:1.22
 
 definitions:
   steps:

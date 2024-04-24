@@ -9,6 +9,7 @@ import (
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	helmv2 "github.com/fluxcd/helm-controller/api/v2beta2"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/conditions"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,8 +46,6 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &helmDeployment)
 	if err != nil {
-		logger.Error(err, "error getting owner deployment")
-
 		return ctrl.Result{}, err
 	}
 
@@ -58,13 +57,17 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, ownerDeployment)
 	if err != nil {
-		logger.Error(err, "error getting owner cluster")
-
 		return ctrl.Result{}, err
 	}
 
 	if ownerCluster == nil {
 		logger.Info("ignoring deployment without owner cluster", "name", ownerDeployment.Name)
+
+		return ctrl.Result{}, nil
+	}
+
+	if conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
+		logger.Info("ignoring deployment until owner cluster is ready")
 
 		return ctrl.Result{}, nil
 	}
@@ -95,8 +98,6 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return nil
 	})
 	if err != nil {
-		logger.Error(err, "error reconciling helm repository")
-
 		return ctrl.Result{}, err
 	}
 
@@ -159,8 +160,6 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return nil
 	})
 	if err != nil {
-		logger.Error(err, "error reconciling helm release")
-
 		return ctrl.Result{}, err
 	}
 
@@ -180,8 +179,6 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		err := r.Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error(err, "error patching owner deployment")
-
 			return ctrl.Result{}, err
 		}
 	}
@@ -209,8 +206,6 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 		err := r.Status().Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error(err, "error patching owner deployment")
-
 			return ctrl.Result{}, err
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/conditions"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,8 +43,6 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &containerImageDeployment)
 	if err != nil {
-		logger.Error(err, "error getting owner deployment")
-
 		return ctrl.Result{}, err
 	}
 
@@ -54,6 +53,21 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, ownerDeployment)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if ownerCluster == nil {
+		logger.Info("ignoring container image deployment without cluster")
+
+		return ctrl.Result{}, nil
+	}
+
+	if conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
+		logger.Info("ignoring container image deployment until cluster is ready")
+
+		return ctrl.Result{}, nil
+	}
 
 	if containerImageDeployment.Status.RepositoryURL == "" {
 		logger.Info("ignoring container image deployment without repository url")
@@ -95,8 +109,6 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return nil
 	})
 	if err != nil {
-		logger.Error(err, "error reconciling git repository")
-
 		return ctrl.Result{}, err
 	}
 
@@ -152,8 +164,6 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return nil
 	})
 	if err != nil {
-		logger.Error(err, "error reconciling kustomization")
-
 		return ctrl.Result{}, err
 	}
 
@@ -175,8 +185,6 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 		err := r.Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error(err, "error patching owner")
-
 			return ctrl.Result{}, err
 		}
 
@@ -206,8 +214,6 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 		err := r.Status().Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error(err, "error patching owner deployment")
-
 			return ctrl.Result{}, err
 		}
 	}

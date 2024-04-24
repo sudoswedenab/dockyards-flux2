@@ -8,6 +8,7 @@ import (
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/runtime/conditions"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,8 +51,6 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &kustomizeDeployment)
 	if err != nil {
-		logger.Error(err, "error getting owner deployment")
-
 		return ctrl.Result{}, err
 	}
 
@@ -63,13 +62,17 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, ownerDeployment)
 	if err != nil {
-		logger.Error(err, "error getting owner cluster")
-
 		return ctrl.Result{}, err
 	}
 
 	if ownerCluster == nil {
 		logger.Info("ignoring kustomize deployment without owner cluster")
+
+		return ctrl.Result{}, nil
+	}
+
+	if conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
+		logger.Info("ignoring kustomize deployment until cluster is ready")
 
 		return ctrl.Result{}, nil
 	}
@@ -105,8 +108,6 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return nil
 	})
 	if err != nil {
-		logger.Error(err, "error reconciling git repository")
-
 		return ctrl.Result{}, err
 	}
 
@@ -156,8 +157,6 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return nil
 	})
 	if err != nil {
-		logger.Error(err, "error reconciling kustomization")
-
 		return ctrl.Result{}, err
 	}
 
@@ -177,8 +176,6 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		err := r.Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error(err, "error patching owner deployment")
-
 			return ctrl.Result{}, err
 		}
 	}
@@ -206,8 +203,6 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		err := r.Status().Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error(err, "error patching owner deployment")
-
 			return ctrl.Result{}, err
 		}
 	}
