@@ -247,7 +247,7 @@ func (r *HelmDeploymentReconciler) DockyardsClusterToHelmDeployments(ctx context
 	}
 
 	matchingLabels := client.MatchingLabels{
-		dockyardsv1.ClusterNameLabel: dockyardsCluster.Name,
+		dockyardsv1.LabelClusterName: dockyardsCluster.Name,
 	}
 
 	var helmDeploymentList dockyardsv1.HelmDeploymentList

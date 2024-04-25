@@ -221,7 +221,7 @@ func (r *KustomizeDeploymentReconciler) DockyardsClusterToKustomizeDeployments(c
 	}
 
 	matchingLabels := client.MatchingLabels{
-		dockyardsv1.ClusterNameLabel: dockyardsCluster.Name,
+		dockyardsv1.LabelClusterName: dockyardsCluster.Name,
 	}
 
 	var kustomizeDeploymentList dockyardsv1.KustomizeDeploymentList

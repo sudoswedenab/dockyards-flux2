@@ -232,7 +232,7 @@ func (r *ContainerImageDeploymentReconciler) DockyardsClusterToContainerImageDep
 	}
 
 	matchingLabels := client.MatchingLabels{
-		dockyardsv1.ClusterNameLabel: dockyardsCluster.Name,
+		dockyardsv1.LabelClusterName: dockyardsCluster.Name,
 	}
 
 	var containerImageDeploymentList dockyardsv1.ContainerImageDeploymentList
