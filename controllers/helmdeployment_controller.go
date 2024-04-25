@@ -13,9 +13,11 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1beta2"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
@@ -236,6 +238,39 @@ func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Obje
 	return nil, nil
 }
 
+func (r *HelmDeploymentReconciler) DockyardsClusterToHelmDeployments(ctx context.Context, o client.Object) []ctrl.Request {
+	logger := ctrl.LoggerFrom(ctx)
+
+	dockyardsCluster, ok := o.(*dockyardsv1.Cluster)
+	if !ok {
+		return nil
+	}
+
+	matchingLabels := client.MatchingLabels{
+		dockyardsv1.ClusterNameLabel: dockyardsCluster.Name,
+	}
+
+	var helmDeploymentList dockyardsv1.HelmDeploymentList
+	err := r.List(ctx, &helmDeploymentList, matchingLabels, client.InNamespace(dockyardsCluster.Namespace))
+	if err != nil {
+		logger.Error(err, "error listing helm deployments")
+
+		return nil
+	}
+
+	requests := make([]ctrl.Request, len(helmDeploymentList.Items))
+	for i, helmDeployment := range helmDeploymentList.Items {
+		requests[i] = ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      helmDeployment.Name,
+				Namespace: helmDeployment.Namespace,
+			},
+		}
+	}
+
+	return requests
+}
+
 func (r *HelmDeploymentReconciler) SetupWithManager(m ctrl.Manager) error {
 	scheme := m.GetScheme()
 
@@ -247,5 +282,9 @@ func (r *HelmDeploymentReconciler) SetupWithManager(m ctrl.Manager) error {
 		For(&dockyardsv1.HelmDeployment{}).
 		Owns(&helmv2.HelmRelease{}).
 		Owns(&sourcev1.HelmRepository{}).
+		Watches(
+			&dockyardsv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(r.DockyardsClusterToHelmDeployments),
+		).
 		Complete(r)
 }

@@ -12,9 +12,11 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
@@ -210,6 +212,39 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	return ctrl.Result{}, nil
 }
 
+func (r *KustomizeDeploymentReconciler) DockyardsClusterToKustomizeDeployments(ctx context.Context, o client.Object) []ctrl.Request {
+	logger := ctrl.LoggerFrom(ctx)
+
+	dockyardsCluster, ok := o.(*dockyardsv1.Cluster)
+	if !ok {
+		return nil
+	}
+
+	matchingLabels := client.MatchingLabels{
+		dockyardsv1.ClusterNameLabel: dockyardsCluster.Name,
+	}
+
+	var kustomizeDeploymentList dockyardsv1.KustomizeDeploymentList
+	err := r.List(ctx, &kustomizeDeploymentList, matchingLabels, client.InNamespace(dockyardsCluster.Namespace))
+	if err != nil {
+		logger.Error(err, "error listing kustomize deployments")
+
+		return nil
+	}
+
+	requests := make([]ctrl.Request, len(kustomizeDeploymentList.Items))
+	for i, kustomizeDeployment := range kustomizeDeploymentList.Items {
+		requests[i] = ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      kustomizeDeployment.Name,
+				Namespace: kustomizeDeployment.Namespace,
+			},
+		}
+	}
+
+	return requests
+}
+
 func (r *KustomizeDeploymentReconciler) SetupWithManager(m ctrl.Manager) error {
 	scheme := m.GetScheme()
 
@@ -221,5 +256,9 @@ func (r *KustomizeDeploymentReconciler) SetupWithManager(m ctrl.Manager) error {
 		For(&dockyardsv1.KustomizeDeployment{}).
 		Owns(&sourcev1.GitRepository{}).
 		Owns(&kustomizev1.Kustomization{}).
+		Watches(
+			&dockyardsv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(r.DockyardsClusterToKustomizeDeployments),
+		).
 		Complete(r)
 }
