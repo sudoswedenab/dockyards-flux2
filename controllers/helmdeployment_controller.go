@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	helmv2 "github.com/fluxcd/helm-controller/api/v2beta2"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
@@ -46,7 +46,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	logger.Info("reconcile helm deployment")
 
-	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &helmDeployment)
+	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &helmDeployment)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -167,24 +167,6 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	logger.Info("reconciled helm release", "result", operationResult)
 
-	if ownerDeployment.Spec.DeploymentRef.Name == "" {
-		logger.Info("owner deployment reference empty")
-
-		patch := client.MergeFrom(ownerDeployment.DeepCopy())
-
-		ownerDeployment.Spec.DeploymentRef = dockyardsv1.DeploymentReference{
-			APIVersion: dockyardsv1.GroupVersion.String(),
-			Kind:       dockyardsv1.HelmDeploymentKind,
-			Name:       helmDeployment.Name,
-			UID:        helmDeployment.UID,
-		}
-
-		err := r.Patch(ctx, ownerDeployment, patch)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	helmReadyCondition := meta.FindStatusCondition(helmRelease.Status.Conditions, fluxcdmeta.ReadyCondition)
 	if helmReadyCondition == nil {
 		logger.Info("helm release has no ready condition")
@@ -213,29 +195,6 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func GetOwnerDeployment(ctx context.Context, r client.Client, object client.Object) (*dockyardsv1.Deployment, error) {
-	for _, ownerReference := range object.GetOwnerReferences() {
-		if ownerReference.Kind != dockyardsv1.DeploymentKind {
-			continue
-		}
-
-		objectKey := client.ObjectKey{
-			Name:      ownerReference.Name,
-			Namespace: object.GetNamespace(),
-		}
-
-		var deployment dockyardsv1.Deployment
-		err := r.Get(ctx, objectKey, &deployment)
-		if err != nil {
-			return nil, err
-		}
-
-		return &deployment, nil
-	}
-
-	return nil, nil
 }
 
 func (r *HelmDeploymentReconciler) DockyardsClusterToHelmDeployments(ctx context.Context, o client.Object) []ctrl.Request {

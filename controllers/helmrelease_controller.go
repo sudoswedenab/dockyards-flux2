@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	"bitbucket.org/sudosweden/dockyards-flux2/pkg/dockyardsutil"
 	"bitbucket.org/sudosweden/dockyards-flux2/pkg/ingressutil"
 	helmv2 "github.com/fluxcd/helm-controller/api/v2beta2"
@@ -64,7 +64,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, nil
 	}
 
-	ownerDeployment, err := dockyardsutil.GetOwnerDeployment(ctx, r.Client, ownerHelmDeployment)
+	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, ownerHelmDeployment)
 	if err != nil {
 		logger.Error(err, "error getting owner deployment")
 

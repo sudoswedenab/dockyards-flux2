@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
@@ -43,7 +43,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		return ctrl.Result{}, nil
 	}
 
-	ownerDeployment, err := GetOwnerDeployment(ctx, r.Client, &containerImageDeployment)
+	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &containerImageDeployment)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -171,26 +171,6 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	if operationResult != controllerutil.OperationResultNone {
 		logger.Info("reconciled kustomization", "result", operationResult)
-	}
-
-	if ownerDeployment.Spec.DeploymentRef.Name == "" {
-		logger.Info("owner deployment reference empty")
-
-		patch := client.MergeFrom(ownerDeployment.DeepCopy())
-
-		ownerDeployment.Spec.DeploymentRef = dockyardsv1.DeploymentReference{
-			APIVersion: dockyardsv1.GroupVersion.String(),
-			Kind:       dockyardsv1.ContainerImageDeploymentKind,
-			Name:       containerImageDeployment.Name,
-			UID:        containerImageDeployment.UID,
-		}
-
-		err := r.Patch(ctx, ownerDeployment, patch)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-
-		logger.Info("patched owner deployment")
 	}
 
 	kustomizationReadyCondition := meta.FindStatusCondition(kustomization.Status.Conditions, fluxcdmeta.ReadyCondition)

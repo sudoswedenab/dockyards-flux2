@@ -3,14 +3,14 @@ package dockyardsutil
 import (
 	"context"
 
-	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func GetOwnerHelmDeployment(ctx context.Context, r client.Client, o client.Object) (*v1alpha1.HelmDeployment, error) {
+func GetOwnerHelmDeployment(ctx context.Context, r client.Client, o client.Object) (*dockyardsv1.HelmDeployment, error) {
 	for _, ownerReference := range o.GetOwnerReferences() {
-		if ownerReference.Kind != v1alpha1.HelmDeploymentKind {
+		if ownerReference.Kind != dockyardsv1.HelmDeploymentKind {
 			continue
 		}
 
@@ -19,43 +19,13 @@ func GetOwnerHelmDeployment(ctx context.Context, r client.Client, o client.Objec
 			return nil, err
 		}
 
-		if groupVersion.Group == v1alpha1.GroupVersion.Group {
+		if groupVersion.Group == dockyardsv1.GroupVersion.Group {
 			objectKey := client.ObjectKey{
 				Name:      ownerReference.Name,
 				Namespace: o.GetNamespace(),
 			}
 
-			var helmDeployment v1alpha1.HelmDeployment
-			err := r.Get(ctx, objectKey, &helmDeployment)
-			if err != nil {
-				return nil, err
-			}
-
-			return &helmDeployment, nil
-		}
-
-	}
-	return nil, nil
-}
-
-func GetOwnerDeployment(ctx context.Context, r client.Client, o client.Object) (*v1alpha1.Deployment, error) {
-	for _, ownerReference := range o.GetOwnerReferences() {
-		if ownerReference.Kind != v1alpha1.DeploymentKind {
-			continue
-		}
-
-		groupVersion, err := schema.ParseGroupVersion(ownerReference.APIVersion)
-		if err != nil {
-			return nil, err
-		}
-
-		if groupVersion.Group == v1alpha1.GroupVersion.Group {
-			objectKey := client.ObjectKey{
-				Name:      ownerReference.Name,
-				Namespace: o.GetNamespace(),
-			}
-
-			var helmDeployment v1alpha1.Deployment
+			var helmDeployment dockyardsv1.HelmDeployment
 			err := r.Get(ctx, objectKey, &helmDeployment)
 			if err != nil {
 				return nil, err
