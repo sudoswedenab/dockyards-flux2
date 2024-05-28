@@ -73,7 +73,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	if conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
+	if !ownerDeployment.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
 		logger.Info("ignoring kustomize deployment until cluster is ready")
 
 		return ctrl.Result{}, nil

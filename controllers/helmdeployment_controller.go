@@ -68,7 +68,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	if conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
+	if !ownerDeployment.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
 		logger.Info("ignoring deployment until owner cluster is ready")
 
 		return ctrl.Result{}, nil
