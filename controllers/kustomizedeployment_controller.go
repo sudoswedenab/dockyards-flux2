@@ -47,17 +47,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, &kustomizeDeployment)
-	}
-
 	logger.Info("reconcile kustomize deployment")
-
-	if kustomizeDeployment.Status.RepositoryURL == "" {
-		logger.Info("ignoring kustomize deployment without repository url")
-
-		return ctrl.Result{}, nil
-	}
 
 	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &kustomizeDeployment)
 	if err != nil {
@@ -81,12 +71,6 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	if !ownerDeployment.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
-		logger.Info("ignoring kustomize deployment until cluster is ready")
-
-		return ctrl.Result{}, nil
-	}
-
 	patchHelper, err := patch.NewHelper(&kustomizeDeployment, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -99,6 +83,22 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
+
+	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(ctx, &kustomizeDeployment)
+	}
+
+	if kustomizeDeployment.Status.RepositoryURL == "" {
+		logger.Info("ignoring kustomize deployment without repository url")
+
+		return ctrl.Result{}, nil
+	}
+
+	if !ownerDeployment.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
+		logger.Info("ignoring kustomize deployment until cluster is ready")
+
+		return ctrl.Result{}, nil
+	}
 
 	if !controllerutil.ContainsFinalizer(&kustomizeDeployment, KustomizeDeploymentFinalizer) {
 		controllerutil.AddFinalizer(&kustomizeDeployment, KustomizeDeploymentFinalizer)
@@ -232,10 +232,14 @@ func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kus
 
 	if apierrors.IsNotFound(err) {
 		controllerutil.RemoveFinalizer(kustomizeDeployment, KustomizeDeploymentFinalizer)
+
+		return ctrl.Result{}, nil
 	}
 
 	if !controllerutil.ContainsFinalizer(&kustomization, kustomizev1.KustomizationFinalizer) {
 		controllerutil.RemoveFinalizer(kustomizeDeployment, KustomizeDeploymentFinalizer)
+
+		return ctrl.Result{}, nil
 	}
 
 	objectKey := client.ObjectKey{
