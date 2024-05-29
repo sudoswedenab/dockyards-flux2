@@ -9,10 +9,14 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
+	"github.com/fluxcd/pkg/runtime/patch"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -26,11 +30,15 @@ import (
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=create;get;list;patch;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=gitrepositories,verbs=create;get;list;patch;watch
 
+const (
+	KustomizeDeploymentFinalizer = "flux2.dockyards.io/finalizer"
+)
+
 type KustomizeDeploymentReconciler struct {
 	client.Client
 }
 
-func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, reterr error) {
 	logger := ctrl.LoggerFrom(ctx)
 
 	var kustomizeDeployment dockyardsv1.KustomizeDeployment
@@ -40,7 +48,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, nil
+		return r.reconcileDelete(ctx, &kustomizeDeployment)
 	}
 
 	logger.Info("reconcile kustomize deployment")
@@ -75,6 +83,25 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	if !ownerDeployment.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
 		logger.Info("ignoring kustomize deployment until cluster is ready")
+
+		return ctrl.Result{}, nil
+	}
+
+	patchHelper, err := patch.NewHelper(&kustomizeDeployment, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	defer func() {
+		err := patchHelper.Patch(ctx, &kustomizeDeployment)
+		if err != nil {
+			result = ctrl.Result{}
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	if !controllerutil.ContainsFinalizer(&kustomizeDeployment, KustomizeDeploymentFinalizer) {
+		controllerutil.AddFinalizer(&kustomizeDeployment, KustomizeDeploymentFinalizer)
 
 		return ctrl.Result{}, nil
 	}
@@ -190,6 +217,54 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 			return ctrl.Result{}, err
 		}
 	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kustomizeDeployment *dockyardsv1.KustomizeDeployment) (ctrl.Result, error) {
+	logger := ctrl.LoggerFrom(ctx)
+
+	var kustomization kustomizev1.Kustomization
+	err := r.Get(ctx, client.ObjectKeyFromObject(kustomizeDeployment), &kustomization)
+	if client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+	}
+
+	if apierrors.IsNotFound(err) {
+		controllerutil.RemoveFinalizer(kustomizeDeployment, KustomizeDeploymentFinalizer)
+	}
+
+	if !controllerutil.ContainsFinalizer(&kustomization, kustomizev1.KustomizationFinalizer) {
+		controllerutil.RemoveFinalizer(kustomizeDeployment, KustomizeDeploymentFinalizer)
+	}
+
+	objectKey := client.ObjectKey{
+		Name:      kustomization.Spec.KubeConfig.SecretRef.Name,
+		Namespace: kustomization.Namespace,
+	}
+
+	var secret corev1.Secret
+	err = r.Get(ctx, objectKey, &secret)
+	if client.IgnoreNotFound(err) != nil {
+		return ctrl.Result{}, err
+	}
+
+	if !apierrors.IsNotFound(err) {
+		logger.Info("ignoring kustomization with kubeconfig secret")
+
+		return ctrl.Result{}, nil
+	}
+
+	patch := client.MergeFrom(kustomization.DeepCopy())
+
+	if controllerutil.RemoveFinalizer(&kustomization, kustomizev1.KustomizationFinalizer) {
+		err := r.Patch(ctx, &kustomization, patch)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	controllerutil.RemoveFinalizer(kustomizeDeployment, KustomizeDeploymentFinalizer)
 
 	return ctrl.Result{}, nil
 }
