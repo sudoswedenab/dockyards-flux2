@@ -174,7 +174,7 @@ func (r *HelmReleaseReconciler) watchClusterIngresses(ctx context.Context, clust
 	return nil
 }
 
-func (r *HelmReleaseReconciler) ingressToHelmRelease(ctx context.Context, o client.Object) []reconcile.Request {
+func (r *HelmReleaseReconciler) ingressToHelmRelease(_ context.Context, o client.Object) []reconcile.Request {
 	ingress, ok := o.(*networkingv1.Ingress)
 	if !ok {
 		return nil
