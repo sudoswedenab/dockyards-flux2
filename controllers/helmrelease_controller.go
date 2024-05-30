@@ -6,7 +6,6 @@ import (
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
-	"bitbucket.org/sudosweden/dockyards-flux2/pkg/dockyardsutil"
 	"bitbucket.org/sudosweden/dockyards-flux2/pkg/ingressutil"
 	helmv2 "github.com/fluxcd/helm-controller/api/v2beta2"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -51,7 +50,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	logger.Info("reconcile helm release")
 
-	ownerHelmDeployment, err := dockyardsutil.GetOwnerHelmDeployment(ctx, r.Client, &helmRelease)
+	ownerHelmDeployment, err := apiutil.GetOwnerHelmDeployment(ctx, r.Client, &helmRelease)
 	if err != nil {
 		logger.Error(err, "error getting owner helm deployment")
 
