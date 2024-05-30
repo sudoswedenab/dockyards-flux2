@@ -256,7 +256,7 @@ func (r *KustomizeDeploymentReconciler) reconcileDelete(ctx context.Context, kus
 	if !apierrors.IsNotFound(err) {
 		logger.Info("ignoring kustomization with kubeconfig secret")
 
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: time.Second * 15}, nil
 	}
 
 	patch := client.MergeFrom(kustomization.DeepCopy())
