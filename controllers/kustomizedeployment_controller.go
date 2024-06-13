@@ -183,6 +183,12 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		kustomization.Spec.RetryInterval = &metav1.Duration{Duration: time.Minute}
 
+		kustomization.Spec.CommonMetadata = &kustomizev1.CommonMetadata{
+			Labels: map[string]string{
+				dockyardsv1.LabelDeploymentName: ownerDeployment.Name,
+			},
+		}
+
 		return nil
 	})
 	if err != nil {

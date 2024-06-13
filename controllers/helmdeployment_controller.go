@@ -136,6 +136,11 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 					Name:       helmRepository.Name,
 				},
 			},
+			ObjectMeta: &helmv2.HelmChartTemplateObjectMeta{
+				Labels: map[string]string{
+					dockyardsv1.LabelDeploymentName: ownerDeployment.Name,
+				},
+			},
 		}
 
 		helmRelease.Spec.Values = helmDeployment.Spec.Values
