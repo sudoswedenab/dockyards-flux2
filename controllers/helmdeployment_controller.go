@@ -138,6 +138,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 			},
 			ObjectMeta: &helmv2.HelmChartTemplateObjectMeta{
 				Labels: map[string]string{
+					dockyardsv1.LabelClusterName:    ownerCluster.Name,
 					dockyardsv1.LabelDeploymentName: ownerDeployment.Name,
 				},
 			},

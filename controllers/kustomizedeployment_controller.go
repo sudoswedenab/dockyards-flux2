@@ -185,6 +185,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 		kustomization.Spec.CommonMetadata = &kustomizev1.CommonMetadata{
 			Labels: map[string]string{
+				dockyardsv1.LabelClusterName:    ownerCluster.Name,
 				dockyardsv1.LabelDeploymentName: ownerDeployment.Name,
 			},
 		}
