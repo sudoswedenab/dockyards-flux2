@@ -1,4 +1,4 @@
-image: docker.io/library/golang:1.22
+image: docker.io/library/golang:1.22.6
 
 definitions:
   steps:
@@ -70,11 +70,17 @@ definitions:
       - echo "export REVISION=$(git branch --show-current)@$(git rev-parse --show-object-format):$(git rev-parse HEAD)" >> env.sh
       artifacts:
       - env.sh
+  - step: &lint
+      name: lint
+      script:
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.1
+      - golangci-lint run
 
 pipelines:
   default:
   - step: *default
   - step: *vendor
+  - step: *lint
   - step: *build
   - step: *ecr-login
   - step: *push
@@ -83,6 +89,7 @@ pipelines:
     'v*':
     - step: *tag
     - step: *vendor
+    - step: *lint
     - step: *build
     - step: *ecr-login
     - step: *push
