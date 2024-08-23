@@ -14,6 +14,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+type warningLogr struct {
+	logger *slog.Logger
+}
+
+func (l *warningLogr) HandleWarningHeader(_ int, _ string, msg string) {
+	l.logger.Warn(msg)
+}
+
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -30,14 +38,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	manager, err := ctrl.NewManager(cfg, manager.Options{})
+	w := warningLogr{
+		logger: logger,
+	}
+
+	cfg.WarningHandler = &w
+
+	mgr, err := ctrl.NewManager(cfg, manager.Options{})
 	if err != nil {
 		logger.Error("error creating manager", "err", err)
 
 		os.Exit(1)
 	}
 
-	tracker, err := remote.NewClusterCacheTracker(manager, remote.ClusterCacheTrackerOptions{})
+	tracker, err := remote.NewClusterCacheTracker(mgr, remote.ClusterCacheTrackerOptions{})
 	if err != nil {
 		logger.Error("error creating new cluster cache tracker", "err", err)
 
@@ -45,8 +59,8 @@ func main() {
 	}
 
 	err = (&controllers.HelmDeploymentReconciler{
-		Client: manager.GetClient(),
-	}).SetupWithManager(manager)
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr)
 	if err != nil {
 		logger.Error("error creating helm deployment reconciler", "err", err)
 
@@ -54,8 +68,8 @@ func main() {
 	}
 
 	err = (&controllers.KustomizeDeploymentReconciler{
-		Client: manager.GetClient(),
-	}).SetupWithManager(manager)
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr)
 	if err != nil {
 		logger.Error("error creating kustomize deployment reconciler", "err", err)
 
@@ -63,8 +77,8 @@ func main() {
 	}
 
 	err = (&controllers.ContainerImageDeploymentReconciler{
-		Client: manager.GetClient(),
-	}).SetupWithManager(manager)
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr)
 	if err != nil {
 		logger.Error("error creating container image deployment reconciler", "err", err)
 
@@ -72,16 +86,16 @@ func main() {
 	}
 
 	err = (&controllers.HelmReleaseReconciler{
-		Client:  manager.GetClient(),
+		Client:  mgr.GetClient(),
 		Tracker: tracker,
-	}).SetupWithManager(manager)
+	}).SetupWithManager(mgr)
 	if err != nil {
 		logger.Error("error creating helm release reconciler", "err", err)
 
 		os.Exit(1)
 	}
 
-	err = manager.Start(ctx)
+	err = mgr.Start(ctx)
 	if err != nil {
 		logger.Error("error starting manager", "err", err)
 
