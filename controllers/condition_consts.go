@@ -4,4 +4,5 @@ const (
 	KustomizationReadyCondition = "KustomizationReady"
 
 	WaitingForKustomizationConditionReason = "WaitingForKustomizationCondition"
+	WaitingForRepositoryURLReason          = "WaitingForRepositoryURL"
 )

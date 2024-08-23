@@ -51,7 +51,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	defer func() {
-		err := patchHelper.Patch(ctx, &containerImageDeployment)
+		err := patchContainerImageDeployment(ctx, patchHelper, &containerImageDeployment)
 		if err != nil {
 			result = ctrl.Result{}
 			reterr = kerrors.NewAggregate([]error{reterr, err})
@@ -87,10 +87,21 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	if containerImageDeployment.Status.RepositoryURL == "" {
-		logger.Info("ignoring container image deployment without repository url")
+		conditions.MarkFalse(&containerImageDeployment, KustomizationReadyCondition, WaitingForRepositoryURLReason, "")
 
 		return ctrl.Result{}, nil
 	}
+
+	result, err = r.reconcileKustomization(ctx, &containerImageDeployment, ownerDeployment, ownerCluster)
+	if err != nil {
+		return result, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *ContainerImageDeploymentReconciler) reconcileKustomization(ctx context.Context, containerImageDeployment *dockyardsv1.ContainerImageDeployment, ownerDeployment *dockyardsv1.Deployment, ownerCluster *dockyardsv1.Cluster) (ctrl.Result, error) {
+	logger := ctrl.LoggerFrom(ctx)
 
 	gitRepository := sourcev1.GitRepository{
 		ObjectMeta: metav1.ObjectMeta{
@@ -197,7 +208,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 
 	kustomizationCondition := conditions.Get(&kustomization, meta.ReadyCondition)
 	if kustomizationCondition == nil {
-		conditions.MarkFalse(&containerImageDeployment, KustomizationReadyCondition, WaitingForKustomizationConditionReason, "")
+		conditions.MarkFalse(containerImageDeployment, KustomizationReadyCondition, WaitingForKustomizationConditionReason, "")
 
 		return ctrl.Result{}, nil
 	}
@@ -210,7 +221,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		LastTransitionTime: kustomizationCondition.LastTransitionTime,
 	}
 
-	conditions.Set(&containerImageDeployment, &kustomizationReadyCondition)
+	conditions.Set(containerImageDeployment, &kustomizationReadyCondition)
 
 	return ctrl.Result{}, nil
 }
@@ -269,4 +280,14 @@ func (r *ContainerImageDeploymentReconciler) SetupWithManager(manager ctrl.Manag
 	}
 
 	return nil
+}
+
+func patchContainerImageDeployment(ctx context.Context, patchHelper *patch.Helper, containerImageDeployment *dockyardsv1.ContainerImageDeployment) error {
+	summaryConditions := []string{
+		KustomizationReadyCondition,
+	}
+
+	conditions.SetSummary(containerImageDeployment, dockyardsv1.ReadyCondition, conditions.WithConditions(summaryConditions...))
+
+	return patchHelper.Patch(ctx, containerImageDeployment)
 }
