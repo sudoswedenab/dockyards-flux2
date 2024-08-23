@@ -22,6 +22,7 @@ import (
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;patch;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=create;get;list;patch;watch
