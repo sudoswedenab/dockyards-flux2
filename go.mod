@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.2
 
 require (
-	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240530180202-fb3167900b22
+	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240822171729-6cf9a8de900c
 	github.com/fluxcd/helm-controller/api v0.37.4
 	github.com/fluxcd/kustomize-controller/api v1.0.1
 	github.com/fluxcd/pkg/apis/meta v1.4.0

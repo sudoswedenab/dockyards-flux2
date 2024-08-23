@@ -7,11 +7,10 @@ import (
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
-	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
+	"github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -172,8 +171,8 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 			Duration: time.Minute,
 		}
 
-		kustomization.Spec.KubeConfig = &fluxcdmeta.KubeConfigReference{
-			SecretRef: fluxcdmeta.SecretKeyReference{
+		kustomization.Spec.KubeConfig = &meta.KubeConfigReference{
+			SecretRef: meta.SecretKeyReference{
 				Name: ownerCluster.Name + "-kubeconfig",
 			},
 		}
@@ -195,25 +194,22 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 		logger.Info("reconciled kustomization", "result", operationResult)
 	}
 
-	kustomizationReadyCondition := meta.FindStatusCondition(kustomization.Status.Conditions, fluxcdmeta.ReadyCondition)
-	if kustomizationReadyCondition == nil {
-		logger.Info("kustomization has no ready condition")
+	kustomizationCondition := conditions.Get(&kustomization, meta.ReadyCondition)
+	if kustomizationCondition == nil {
+		conditions.MarkFalse(&containerImageDeployment, KustomizationReadyCondition, WaitingForKustomizationConditionReason, "")
 
 		return ctrl.Result{}, nil
 	}
 
-	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1.ReadyCondition, kustomizationReadyCondition.Status) {
-		logger.Info("owner deployment needs status condition update")
-
-		readyCondition := metav1.Condition{
-			Type:    dockyardsv1.ReadyCondition,
-			Status:  kustomizationReadyCondition.Status,
-			Message: kustomizationReadyCondition.Message,
-			Reason:  kustomizationReadyCondition.Reason,
-		}
-
-		meta.SetStatusCondition(&ownerDeployment.Status.Conditions, readyCondition)
+	kustomizationReadyCondition := metav1.Condition{
+		Type:               KustomizationReadyCondition,
+		Status:             kustomizationCondition.Status,
+		Message:            kustomizationCondition.Message,
+		Reason:             kustomizationCondition.Reason,
+		LastTransitionTime: kustomizationCondition.LastTransitionTime,
 	}
+
+	conditions.Set(&containerImageDeployment, &kustomizationReadyCondition)
 
 	return ctrl.Result{}, nil
 }
