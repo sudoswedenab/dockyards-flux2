@@ -9,10 +9,12 @@ import (
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
+	"github.com/fluxcd/pkg/runtime/patch"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -30,7 +32,7 @@ type ContainerImageDeploymentReconciler struct {
 	client.Client
 }
 
-func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, reterr error) {
 	logger := ctrl.LoggerFrom(ctx)
 
 	var containerImageDeployment dockyardsv1.ContainerImageDeployment
@@ -42,6 +44,19 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	if !containerImageDeployment.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
 	}
+
+	patchHelper, err := patch.NewHelper(&containerImageDeployment, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	defer func() {
+		err := patchHelper.Patch(ctx, &containerImageDeployment)
+		if err != nil {
+			result = ctrl.Result{}
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
 
 	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &containerImageDeployment)
 	if err != nil {
@@ -197,14 +212,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 			Reason:  kustomizationReadyCondition.Reason,
 		}
 
-		patch := client.MergeFrom(ownerDeployment.DeepCopy())
-
 		meta.SetStatusCondition(&ownerDeployment.Status.Conditions, readyCondition)
-
-		err := r.Status().Patch(ctx, ownerDeployment, patch)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	return ctrl.Result{}, nil

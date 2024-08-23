@@ -49,8 +49,25 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	logger.Info("reconcile kustomize deployment")
 
-	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &kustomizeDeployment)
+	patchHelper, err := patch.NewHelper(&kustomizeDeployment, r.Client)
 	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	defer func() {
+		err := patchHelper.Patch(ctx, &kustomizeDeployment)
+		if err != nil {
+			result = ctrl.Result{}
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(ctx, &kustomizeDeployment)
+	}
+
+	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &kustomizeDeployment)
+	if client.IgnoreNotFound(err) != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -69,23 +86,6 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		logger.Info("ignoring kustomize deployment without owner cluster")
 
 		return ctrl.Result{}, nil
-	}
-
-	patchHelper, err := patch.NewHelper(&kustomizeDeployment, r.Client)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	defer func() {
-		err := patchHelper.Patch(ctx, &kustomizeDeployment)
-		if err != nil {
-			result = ctrl.Result{}
-			reterr = kerrors.NewAggregate([]error{reterr, err})
-		}
-	}()
-
-	if !kustomizeDeployment.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, &kustomizeDeployment)
 	}
 
 	if kustomizeDeployment.Status.RepositoryURL == "" {
@@ -215,14 +215,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 			Reason:  kustomizationReadyCondition.Reason,
 		}
 
-		patch := client.MergeFrom(ownerDeployment.DeepCopy())
-
 		meta.SetStatusCondition(&ownerDeployment.Status.Conditions, readyCondition)
-
-		err := r.Status().Patch(ctx, ownerDeployment, patch)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
 	}
 
 	return ctrl.Result{}, nil
