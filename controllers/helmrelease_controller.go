@@ -52,8 +52,6 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	ownerHelmDeployment, err := apiutil.GetOwnerHelmDeployment(ctx, r.Client, &helmRelease)
 	if err != nil {
-		logger.Error(err, "error getting owner helm deployment")
-
 		return ctrl.Result{}, err
 	}
 
@@ -65,8 +63,6 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, ownerHelmDeployment)
 	if err != nil {
-		logger.Error(err, "error getting owner deployment")
-
 		return ctrl.Result{}, err
 	}
 
@@ -78,8 +74,6 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, ownerDeployment)
 	if err != nil {
-		logger.Error(err, "error getting owner cluster")
-
 		return ctrl.Result{}, err
 	}
 
@@ -93,7 +87,7 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if err != nil {
 		logger.Error(err, "error watching remote cluster ingresses")
 
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	namespacedName := types.NamespacedName{
@@ -103,8 +97,6 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	trackerClient, err := r.Tracker.GetClient(ctx, namespacedName)
 	if err != nil {
-		logger.Error(err, "error getting cluster client")
-
 		return ctrl.Result{}, err
 	}
 
@@ -117,8 +109,6 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	err = trackerClient.List(ctx, &ingressList, matchingLabels)
 	if err != nil {
-		logger.Error(err, "error listing cluster ingresses")
-
 		return ctrl.Result{}, err
 	}
 
@@ -139,8 +129,6 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 		err := r.Status().Patch(ctx, ownerDeployment, patch)
 		if err != nil {
-			logger.Error(err, "error patching deployment")
-
 			return ctrl.Result{}, err
 		}
 	}
