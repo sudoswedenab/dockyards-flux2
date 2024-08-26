@@ -1,5 +1,5 @@
-bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240822171729-6cf9a8de900c h1:sZHe0h7UCoJT98E0us77/AtiayMsSk6c5bbniQHgHwo=
-bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240822171729-6cf9a8de900c/go.mod h1:fAPf/0ZQt19CyN3vAvBVK/ZXqTAWPihKikI+0ylvlMg=
+bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240826104421-4daad1ec91a2 h1:akDb85wPAuhCpmv5cmrVxLb/dfh56k9iygm6quXPtQs=
+bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20240826104421-4daad1ec91a2/go.mod h1:fAPf/0ZQt19CyN3vAvBVK/ZXqTAWPihKikI+0ylvlMg=
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 h1:bvDV9vkmnHYOMsOr4WLk+Vo07yKIzd94sVoIqshQ4bU=
 github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24/go.mod h1:8o94RPi1/7XTJvwPpRSzSUedZrtlirdB3r9Z20bi2f8=
 github.com/MakeNowJust/heredoc v1.0.0 h1:cXCdzVdstXyiTqTvfqk9SDHpKNjxuom+DOlyEeQ4pzQ=

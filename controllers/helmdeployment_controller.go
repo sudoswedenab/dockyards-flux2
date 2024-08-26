@@ -10,10 +10,12 @@ import (
 	helmv2 "github.com/fluxcd/helm-controller/api/v2"
 	fluxcdmeta "github.com/fluxcd/pkg/apis/meta"
 	"github.com/fluxcd/pkg/runtime/conditions"
+	"github.com/fluxcd/pkg/runtime/patch"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -21,9 +23,9 @@ import (
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
-// +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;patch;watch
-// +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=helmdeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=helmdeployments/status,verbs=patch
 // +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=helmreleases,verbs=create;get;list;patch;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=helmrepositories,verbs=create;get;list;patch;watch
 
@@ -31,7 +33,7 @@ type HelmDeploymentReconciler struct {
 	client.Client
 }
 
-func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, reterr error) {
 	logger := ctrl.LoggerFrom(ctx)
 
 	var helmDeployment dockyardsv1.HelmDeployment
@@ -39,6 +41,19 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+
+	patchHelper, err := patch.NewHelper(&helmDeployment, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	defer func() {
+		err := patchHelmDeployment(ctx, patchHelper, &helmDeployment)
+		if err != nil {
+			result = ctrl.Result{}
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
 
 	if !helmDeployment.DeletionTimestamp.IsZero() {
 		return ctrl.Result{}, nil
@@ -69,7 +84,7 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	if !ownerDeployment.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
-		logger.Info("ignoring deployment until owner cluster is ready")
+		conditions.MarkFalse(&helmDeployment, HelmReleaseReadyCondition, WaitingForClusterReadyReason, "")
 
 		return ctrl.Result{}, nil
 	}
@@ -173,32 +188,26 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 
 	logger.Info("reconciled helm release", "result", operationResult)
 
-	helmReadyCondition := meta.FindStatusCondition(helmRelease.Status.Conditions, fluxcdmeta.ReadyCondition)
-	if helmReadyCondition == nil {
-		logger.Info("helm release has no ready condition")
+	if operationResult == controllerutil.OperationResultCreated {
+		return ctrl.Result{}, nil
+	}
+
+	helmReleaseReadyCondition := meta.FindStatusCondition(helmRelease.Status.Conditions, fluxcdmeta.ReadyCondition)
+	if helmReleaseReadyCondition == nil {
+		conditions.MarkFalse(&helmDeployment, HelmReleaseReadyCondition, WaitingForHelmReleaseConditionReason, "")
 
 		return ctrl.Result{}, nil
 	}
 
-	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1.ReadyCondition, helmReadyCondition.Status) {
-		logger.Info("owner deployment needs status condition update")
-
-		readyCondition := metav1.Condition{
-			Type:    dockyardsv1.ReadyCondition,
-			Status:  helmReadyCondition.Status,
-			Message: helmReadyCondition.Message,
-			Reason:  helmReadyCondition.Reason,
-		}
-
-		patch := client.MergeFrom(ownerDeployment.DeepCopy())
-
-		meta.SetStatusCondition(&ownerDeployment.Status.Conditions, readyCondition)
-
-		err := r.Status().Patch(ctx, ownerDeployment, patch)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	condition := metav1.Condition{
+		Type:               HelmReleaseReadyCondition,
+		Reason:             helmReleaseReadyCondition.Reason,
+		Status:             helmReleaseReadyCondition.Status,
+		Message:            helmReleaseReadyCondition.Message,
+		LastTransitionTime: helmReleaseReadyCondition.LastTransitionTime,
 	}
+
+	conditions.Set(&helmDeployment, &condition)
 
 	return ctrl.Result{}, nil
 }
@@ -252,4 +261,14 @@ func (r *HelmDeploymentReconciler) SetupWithManager(m ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.DockyardsClusterToHelmDeployments),
 		).
 		Complete(r)
+}
+
+func patchHelmDeployment(ctx context.Context, patchHelper *patch.Helper, helmDeployment *dockyardsv1.HelmDeployment) error {
+	summaryConditions := []string{
+		HelmReleaseReadyCondition,
+	}
+
+	conditions.SetSummary(helmDeployment, dockyardsv1.ReadyCondition, conditions.WithConditions(summaryConditions...))
+
+	return patchHelper.Patch(ctx, helmDeployment)
 }
