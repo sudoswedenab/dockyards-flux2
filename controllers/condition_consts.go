@@ -13,3 +13,11 @@ const (
 	WaitingForClusterReadyReason         = "WaitingForClusterReady"
 	WaitingForHelmReleaseConditionReason = "WaitingForHelmReleaseCondition"
 )
+
+const (
+	DeploymentReferencesReadyCondition = "DeploymentReferencesReady"
+
+	WaitingForDeploymentReadyConditionReason = "WaitingForDeploymentReadyCondition"
+	DeploymentReferenceNotReadyReason        = "DeploymentReferenceNotReady"
+	UnsupportedDeploymentReferenceKindReason = "UnsupportedDeploymentReferenceKind"
+)
