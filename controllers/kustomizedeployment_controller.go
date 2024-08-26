@@ -55,7 +55,7 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	defer func() {
-		err := patchHelper.Patch(ctx, &kustomizeDeployment)
+		err := patchKustomizeDeployment(ctx, patchHelper, &kustomizeDeployment)
 		if err != nil {
 			result = ctrl.Result{}
 			reterr = kerrors.NewAggregate([]error{reterr, err})
@@ -200,23 +200,20 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	kustomizationReadyCondition := meta.FindStatusCondition(kustomization.Status.Conditions, fluxcdmeta.ReadyCondition)
 	if kustomizationReadyCondition == nil {
-		logger.Info("kustomization has no ready condition")
+		conditions.MarkFalse(&kustomizeDeployment, KustomizationReadyCondition, WaitingForKustomizationConditionReason, "")
 
 		return ctrl.Result{}, nil
 	}
 
-	if !meta.IsStatusConditionPresentAndEqual(ownerDeployment.Status.Conditions, dockyardsv1.ReadyCondition, kustomizationReadyCondition.Status) {
-		logger.Info("owner deployment needs status condition update")
-
-		readyCondition := metav1.Condition{
-			Type:    dockyardsv1.ReadyCondition,
-			Status:  kustomizationReadyCondition.Status,
-			Message: kustomizationReadyCondition.Message,
-			Reason:  kustomizationReadyCondition.Reason,
-		}
-
-		meta.SetStatusCondition(&ownerDeployment.Status.Conditions, readyCondition)
+	condition := metav1.Condition{
+		Type:               KustomizationReadyCondition,
+		Status:             kustomizationReadyCondition.Status,
+		Message:            kustomizationReadyCondition.Message,
+		Reason:             kustomizationReadyCondition.Reason,
+		LastTransitionTime: kustomizationReadyCondition.LastTransitionTime,
 	}
+
+	conditions.Set(&kustomizeDeployment, &condition)
 
 	return ctrl.Result{}, nil
 }
@@ -322,4 +319,14 @@ func (r *KustomizeDeploymentReconciler) SetupWithManager(m ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.DockyardsClusterToKustomizeDeployments),
 		).
 		Complete(r)
+}
+
+func patchKustomizeDeployment(ctx context.Context, patchHelper *patch.Helper, kustomizeDeployment *dockyardsv1.KustomizeDeployment) error {
+	summaryConditions := []string{
+		KustomizationReadyCondition,
+	}
+
+	conditions.SetSummary(kustomizeDeployment, dockyardsv1.ReadyCondition, conditions.WithConditions(summaryConditions...))
+
+	return patchHelper.Patch(ctx, kustomizeDeployment)
 }
