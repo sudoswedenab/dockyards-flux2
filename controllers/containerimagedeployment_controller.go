@@ -80,7 +80,7 @@ func (r *ContainerImageDeploymentReconciler) Reconcile(ctx context.Context, req 
 	}
 
 	if !ownerDeployment.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
-		logger.Info("ignoring container image deployment until cluster is ready")
+		conditions.MarkFalse(&containerImageDeployment, KustomizationReadyCondition, WaitingForClusterReadyReason, "")
 
 		return ctrl.Result{}, nil
 	}

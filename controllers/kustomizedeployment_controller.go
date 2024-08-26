@@ -89,13 +89,13 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	if kustomizeDeployment.Status.RepositoryURL == "" {
-		logger.Info("ignoring kustomize deployment without repository url")
+		conditions.MarkFalse(&kustomizeDeployment, KustomizationReadyCondition, WaitingForRepositoryURLReason, "")
 
 		return ctrl.Result{}, nil
 	}
 
 	if !ownerDeployment.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
-		logger.Info("ignoring kustomize deployment until cluster is ready")
+		conditions.MarkFalse(&kustomizeDeployment, KustomizationReadyCondition, WaitingForClusterReadyReason, "")
 
 		return ctrl.Result{}, nil
 	}
