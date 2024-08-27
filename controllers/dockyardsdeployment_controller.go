@@ -9,6 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -109,7 +110,12 @@ func (r *DockyardsDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error
 
 	_ = dockyardsv1.AddToScheme(scheme)
 
-	err := ctrl.NewControllerManagedBy(mgr).For(&dockyardsv1.Deployment{}).Complete(r)
+	err := ctrl.NewControllerManagedBy(mgr).
+		For(&dockyardsv1.Deployment{}).
+		Owns(&dockyardsv1.ContainerImageDeployment{}, builder.MatchEveryOwner).
+		Owns(&dockyardsv1.HelmDeployment{}, builder.MatchEveryOwner).
+		Owns(&dockyardsv1.KustomizeDeployment{}, builder.MatchEveryOwner).
+		Complete(r)
 	if err != nil {
 		return err
 	}
