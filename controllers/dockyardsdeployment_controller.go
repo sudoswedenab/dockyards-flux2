@@ -6,6 +6,7 @@ import (
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -59,25 +60,42 @@ func (r *DockyardsDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		case dockyardsv1.KustomizeDeploymentKind:
 			var kustomizeDeployment dockyardsv1.KustomizeDeployment
 			err := r.Get(ctx, objectKey, &kustomizeDeployment)
-			if err != nil {
-				logger.Error(err, "error getting kustomize deployment")
-				panic(err)
+			if client.IgnoreNotFound(err) != nil {
+				return ctrl.Result{}, err
+			}
+
+			if apierrors.IsNotFound(err) {
+				conditions.MarkFalse(&dockyardsDeployment, DeploymentReferencesReadyCondition, DeploymentMissingReason, "%s", err)
+
+				return ctrl.Result{}, nil
 			}
 
 			readyCondition = conditions.Get(&kustomizeDeployment, dockyardsv1.ReadyCondition)
 		case dockyardsv1.HelmDeploymentKind:
 			var helmDeployment dockyardsv1.HelmDeployment
 			err := r.Get(ctx, objectKey, &helmDeployment)
-			if err != nil {
-				panic(err)
+			if client.IgnoreNotFound(err) != nil {
+				return ctrl.Result{}, err
+			}
+
+			if apierrors.IsNotFound(err) {
+				conditions.MarkFalse(&dockyardsDeployment, DeploymentReferencesReadyCondition, DeploymentMissingReason, "%s", err)
+
+				return ctrl.Result{}, nil
 			}
 
 			readyCondition = conditions.Get(&helmDeployment, dockyardsv1.ReadyCondition)
 		case dockyardsv1.ContainerImageDeploymentKind:
 			var containerImageDeployment dockyardsv1.ContainerImageDeployment
 			err = r.Get(ctx, objectKey, &containerImageDeployment)
-			if err != nil {
-				panic(err)
+			if client.IgnoreNotFound(err) != nil {
+				return ctrl.Result{}, err
+			}
+
+			if apierrors.IsNotFound(err) {
+				conditions.MarkFalse(&dockyardsDeployment, DeploymentReferencesReadyCondition, DeploymentMissingReason, "%s", err)
+
+				return ctrl.Result{}, nil
 			}
 
 			readyCondition = conditions.Get(&containerImageDeployment, dockyardsv1.ReadyCondition)

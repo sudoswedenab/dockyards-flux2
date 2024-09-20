@@ -20,4 +20,5 @@ const (
 	WaitingForDeploymentReadyConditionReason = "WaitingForDeploymentReadyCondition"
 	DeploymentReferenceNotReadyReason        = "DeploymentReferenceNotReady"
 	UnsupportedDeploymentReferenceKindReason = "UnsupportedDeploymentReferenceKind"
+	DeploymentMissingReason                  = "DeploymentMissing"
 )
