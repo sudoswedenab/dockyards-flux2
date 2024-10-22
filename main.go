@@ -8,10 +8,12 @@ import (
 
 	"bitbucket.org/sudosweden/dockyards-flux2/controllers"
 	"github.com/go-logr/logr"
+	"github.com/spf13/pflag"
 	"sigs.k8s.io/cluster-api/controllers/remote"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 type warningLogr struct {
@@ -23,6 +25,10 @@ func (l *warningLogr) HandleWarningHeader(_ int, _ string, msg string) {
 }
 
 func main() {
+	var metricsBindAddress string
+	pflag.StringVar(&metricsBindAddress, "metrics-bind-address", "0", "metrics bind address")
+	pflag.Parse()
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
@@ -44,7 +50,13 @@ func main() {
 
 	cfg.WarningHandler = &w
 
-	mgr, err := ctrl.NewManager(cfg, manager.Options{})
+	options := manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: metricsBindAddress,
+		},
+	}
+
+	mgr, err := ctrl.NewManager(cfg, options)
 	if err != nil {
 		logger.Error("error creating manager", "err", err)
 
