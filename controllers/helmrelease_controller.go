@@ -5,7 +5,7 @@ import (
 	"slices"
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha2"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
 	"bitbucket.org/sudosweden/dockyards-flux2/pkg/ingressutil"
 	helmv2 "github.com/fluxcd/helm-controller/api/v2"
 	networkingv1 "k8s.io/api/networking/v1"
