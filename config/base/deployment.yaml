@@ -18,6 +18,9 @@ spec:
       - image: dockyards-flux2
         name: dockyards-flux2
         imagePullPolicy: IfNotPresent
+        ports:
+        - name: webhook
+          containerPort: 9443
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
