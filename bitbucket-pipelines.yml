@@ -75,12 +75,19 @@ definitions:
       script:
       - go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.1
       - golangci-lint run
+  - step: &test
+      name: test
+      script:
+      - go test ./... -v
 
 pipelines:
   default:
   - step: *default
   - step: *vendor
-  - step: *lint
+  - parallel:
+      steps:
+      - step: *test
+      - step: *lint
   - step: *build
   - step: *ecr-login
   - step: *push
@@ -89,7 +96,10 @@ pipelines:
     'v*':
     - step: *tag
     - step: *vendor
-    - step: *lint
+    - parallel:
+        steps:
+        - step: *test
+        - step: *lint
     - step: *build
     - step: *ecr-login
     - step: *push
