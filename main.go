@@ -7,6 +7,7 @@ import (
 	"os/signal"
 
 	"bitbucket.org/sudosweden/dockyards-flux2/controllers"
+	"bitbucket.org/sudosweden/dockyards-flux2/webhooks"
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	"sigs.k8s.io/cluster-api/controllers/remote"
@@ -26,7 +27,9 @@ func (l *warningLogr) HandleWarningHeader(_ int, _ string, msg string) {
 
 func main() {
 	var metricsBindAddress string
+	var enableWebhooks bool
 	pflag.StringVar(&metricsBindAddress, "metrics-bind-address", "0", "metrics bind address")
+	pflag.BoolVar(&enableWebhooks, "enable-webhooks", false, "enable webhooks")
 	pflag.Parse()
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -114,6 +117,15 @@ func main() {
 		logger.Error("error creating helm release reconciler", "err", err)
 
 		os.Exit(1)
+	}
+
+	if enableWebhooks {
+		err := (&webhooks.DockyardsWorkloadTemplate{}).SetupWithManager(mgr)
+		if err != nil {
+			logger.Error("error creating workload template webhooks", "err", err)
+
+			os.Exit(1)
+		}
 	}
 
 	err = mgr.Start(ctx)
