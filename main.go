@@ -119,6 +119,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = (&controllers.DockyardsWorkloadReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr)
+	if err != nil {
+		logger.Error("error creating workload reconciler", "err", err)
+
+		os.Exit(1)
+	}
+
 	if enableWebhooks {
 		err := (&webhooks.DockyardsWorkloadTemplate{}).SetupWithManager(mgr)
 		if err != nil {

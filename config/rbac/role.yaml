@@ -79,6 +79,32 @@ rules:
   verbs:
   - patch
 - apiGroups:
+  - dockyards.io
+  resources:
+  - workloads
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - dockyards.io
+  resources:
+  - workloadtemplates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - helm.toolkit.fluxcd.io
+  resources:
+  - '*'
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
   - helm.toolkit.fluxcd.io
   resources:
   - helmreleases
@@ -91,7 +117,27 @@ rules:
 - apiGroups:
   - kustomize.toolkit.fluxcd.io
   resources:
+  - '*'
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - kustomize.toolkit.fluxcd.io
+  resources:
   - kustomizations
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - '*'
   verbs:
   - create
   - get
