@@ -93,8 +93,6 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	filename := path.Join(wd, "template.cue")
 
-	logger.Info("working directory", "wd", wd, "filename", filename)
-
 	instances := load.Instances([]string{}, &load.Config{
 		Package: "template",
 		Overlay: map[string]load.Source{
