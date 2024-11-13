@@ -18,6 +18,7 @@ import (
 }
 
 #VerificationRequestStatus: {
+	providerID?: string @go(ProviderID)
 	conditions?: [...metav1.#Condition] @go(Conditions,[]metav1.Condition)
 }
 

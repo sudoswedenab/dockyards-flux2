@@ -13,9 +13,12 @@ import (
 #WorkloadKind: "Workload"
 
 #WorkloadSpec: {
-	clusterComponent?:      bool                                @go(ClusterComponent)
-	targetNamespace:        string                              @go(TargetNamespace)
+	clusterComponent?: bool   @go(ClusterComponent)
+	targetNamespace:   string @go(TargetNamespace)
+
+	// Deprecated: Use input instead.
 	workloadTemplateInput?: null | apiextensionsv1.#JSON        @go(WorkloadTemplateInput,*apiextensionsv1.JSON)
+	input?:                 null | apiextensionsv1.#JSON        @go(Input,*apiextensionsv1.JSON)
 	workloadTemplateRef?:   null | corev1.#TypedObjectReference @go(WorkloadTemplateRef,*corev1.TypedObjectReference)
 
 	// +kubebuilder:validation:Enum=Dockyards;User
@@ -23,7 +26,9 @@ import (
 }
 
 #WorkloadStatus: {
+	conditions?: [...metav1.#Condition] @go(Conditions,[]metav1.Condition)
 	dependencyRefs?: [...corev1.#TypedLocalObjectReference] @go(DependencyRefs,[]corev1.TypedLocalObjectReference)
+	urls?: [...string] @go(URLs,[]string)
 }
 
 // +kubebuilder:object:root=true

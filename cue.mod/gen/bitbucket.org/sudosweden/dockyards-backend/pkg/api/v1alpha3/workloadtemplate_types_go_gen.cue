@@ -4,7 +4,10 @@
 
 package v1alpha3
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 #WorkloadTemplateType: string // #enumWorkloadTemplateType
 
@@ -20,13 +23,19 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	type:    #WorkloadTemplateType @go(Type)
 }
 
+#WorkloadTemplateStatus: {
+	inputSchema?: null | apiextensionsv1.#JSON @go(InputSchema,*apiextensionsv1.JSON)
+}
+
 // +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=".spec.type"
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=".metadata.creationTimestamp"
 #WorkloadTemplate: {
 	metav1.#TypeMeta
-	metadata?: metav1.#ObjectMeta    @go(ObjectMeta)
-	spec?:     #WorkloadTemplateSpec @go(Spec)
+	metadata?: metav1.#ObjectMeta      @go(ObjectMeta)
+	spec?:     #WorkloadTemplateSpec   @go(Spec)
+	status?:   #WorkloadTemplateStatus @go(Status)
 }
 
 // +kubebuilder:object:root=true

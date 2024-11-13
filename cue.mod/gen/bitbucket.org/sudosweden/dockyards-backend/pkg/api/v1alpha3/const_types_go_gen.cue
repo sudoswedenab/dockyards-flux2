@@ -19,6 +19,7 @@ package v1alpha3
 
 #SecretTypeCredential: "dockyards.io/credential"
 
-#AnnotationDefaultTemplate: "dockyards.io/is-default-template"
-#AnnotationVoucherCode:     "dockyards.io/voucher-code"
-#AnnotationDefaultRelease:  "dockyards.io/is-default-release"
+#AnnotationDefaultTemplate:   "dockyards.io/is-default-template"
+#AnnotationVoucherCode:       "dockyards.io/voucher-code"
+#AnnotationDefaultRelease:    "dockyards.io/is-default-release"
+#AnnotationIgnoreDeployments: "dockyards.io/ignore-deployments"
