@@ -135,6 +135,15 @@ func main() {
 
 			os.Exit(1)
 		}
+
+		err = (&webhooks.DockyardsWorkload{
+			Client: mgr.GetClient(),
+		}).SetupWithManager(mgr)
+		if err != nil {
+			logger.Error("error creating workload template webhooks", "err", err)
+
+			os.Exit(1)
+		}
 	}
 
 	err = mgr.Start(ctx)
