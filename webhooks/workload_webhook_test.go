@@ -416,7 +416,7 @@ func TestDockyardsWorkload_ValidateCreate(t *testing.T) {
 			c := fake.
 				NewClientBuilder().
 				WithScheme(scheme).
-				WithObjects(&tc.workloadTemplate, &tc.workload).
+				WithObjects(&tc.workloadTemplate).
 				Build()
 
 			webhook := webhooks.DockyardsWorkload{
@@ -424,6 +424,200 @@ func TestDockyardsWorkload_ValidateCreate(t *testing.T) {
 			}
 
 			_, actual := webhook.ValidateCreate(context.Background(), &tc.workload)
+			if !cmp.Equal(actual, tc.expected) {
+				t.Errorf("diff: %s", cmp.Diff(tc.expected, actual))
+			}
+		})
+	}
+}
+
+func TestDockyardsWorkload_ValidateUpdate(t *testing.T) {
+	tt := []struct {
+		name             string
+		workloadTemplate dockyardsv1.WorkloadTemplate
+		oldWorkload      dockyardsv1.Workload
+		newWorkload      dockyardsv1.Workload
+		expected         error
+	}{
+		{
+			name: "test update empty reference",
+			workloadTemplate: dockyardsv1.WorkloadTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "dockyards-test",
+				},
+				Spec: dockyardsv1.WorkloadTemplateSpec{
+					Source: mustReadAll("testdata/defaults.cue"),
+				},
+			},
+			oldWorkload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-empty-reference",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{},
+			},
+			newWorkload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-empty-reference",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{
+					WorkloadTemplateRef: &corev1.TypedObjectReference{
+						Kind:      dockyardsv1.WorkloadTemplateKind,
+						Name:      "test",
+						Namespace: ptr.To("dockyards-test"),
+					},
+				},
+			},
+		},
+		{
+			name: "test reference name",
+			workloadTemplate: dockyardsv1.WorkloadTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "dockyards-test",
+				},
+				Spec: dockyardsv1.WorkloadTemplateSpec{
+					Source: mustReadAll("testdata/defaults.cue"),
+				},
+			},
+			oldWorkload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-reference-name",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{
+					WorkloadTemplateRef: &corev1.TypedObjectReference{
+						Kind:      dockyardsv1.WorkloadTemplateKind,
+						Name:      "test",
+						Namespace: ptr.To("dockyards-test"),
+					},
+				},
+			},
+			newWorkload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-reference-name",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{
+					WorkloadTemplateRef: &corev1.TypedObjectReference{
+						Kind:      dockyardsv1.WorkloadTemplateKind,
+						Name:      "test-update",
+						Namespace: ptr.To("dockyards-test"),
+					},
+				},
+			},
+			expected: apierrors.NewInvalid(
+				dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(),
+				"test-reference-name",
+				field.ErrorList{
+					field.Forbidden(field.NewPath("spec", "workloadTemplateRef"), `reference is immutable`),
+				},
+			),
+		},
+		{
+			name: "test remove reference",
+			workloadTemplate: dockyardsv1.WorkloadTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "dockyards-test",
+				},
+				Spec: dockyardsv1.WorkloadTemplateSpec{
+					Source: mustReadAll("testdata/defaults.cue"),
+				},
+			},
+			oldWorkload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-remove-reference",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{
+					WorkloadTemplateRef: &corev1.TypedObjectReference{
+						Kind:      dockyardsv1.WorkloadTemplateKind,
+						Name:      "test",
+						Namespace: ptr.To("dockyards-test"),
+					},
+				},
+			},
+			newWorkload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-remove-reference",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{},
+			},
+			expected: apierrors.NewInvalid(
+				dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(),
+				"test-remove-reference",
+				field.ErrorList{
+					field.Forbidden(field.NewPath("spec", "workloadTemplateRef"), `reference is immutable`),
+				},
+			),
+		},
+		{
+			name: "test input",
+			workloadTemplate: dockyardsv1.WorkloadTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "dockyards-test",
+				},
+				Spec: dockyardsv1.WorkloadTemplateSpec{
+					Source: mustReadAll("testdata/defaults.cue"),
+				},
+			},
+			oldWorkload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-remove-reference",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{
+					WorkloadTemplateRef: &corev1.TypedObjectReference{
+						Kind:      dockyardsv1.WorkloadTemplateKind,
+						Name:      "test",
+						Namespace: ptr.To("dockyards-test"),
+					},
+					Input: &apiextensionsv1.JSON{
+						Raw: []byte(`{"count":1}`),
+					},
+				},
+			},
+			newWorkload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-remove-reference",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{
+					WorkloadTemplateRef: &corev1.TypedObjectReference{
+						Kind:      dockyardsv1.WorkloadTemplateKind,
+						Name:      "test",
+						Namespace: ptr.To("dockyards-test"),
+					},
+					Input: &apiextensionsv1.JSON{
+						Raw: []byte(`{"count":2}`),
+					},
+				},
+			},
+		},
+	}
+
+	for _, tc := range tt {
+		t.Run(tc.name, func(t *testing.T) {
+			scheme := runtime.NewScheme()
+
+			_ = dockyardsv1.AddToScheme(scheme)
+
+			c := fake.
+				NewClientBuilder().
+				WithScheme(scheme).
+				WithObjects(&tc.workloadTemplate).
+				Build()
+
+			webhook := webhooks.DockyardsWorkload{
+				Client: c,
+			}
+
+			_, actual := webhook.ValidateUpdate(context.Background(), &tc.oldWorkload, &tc.newWorkload)
 			if !cmp.Equal(actual, tc.expected) {
 				t.Errorf("diff: %s", cmp.Diff(tc.expected, actual))
 			}

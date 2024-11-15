@@ -46,13 +46,24 @@ func (webhook *DockyardsWorkload) ValidateDelete(_ context.Context, _ runtime.Ob
 	return nil, nil
 }
 
-func (webhook *DockyardsWorkload) ValidateUpdate(ctx context.Context, _, newObj runtime.Object) (admission.Warnings, error) {
-	workload, ok := newObj.(*dockyardsv1.Workload)
+func (webhook *DockyardsWorkload) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	oldWorkload, ok := oldObj.(*dockyardsv1.Workload)
 	if !ok {
 		return nil, apierrors.NewBadRequest("unexpected type")
 	}
 
-	return webhook.validate(ctx, workload)
+	newWorkload, ok := newObj.(*dockyardsv1.Workload)
+	if !ok {
+		return nil, apierrors.NewBadRequest("unexpected type")
+	}
+
+	if !webhook.validTemplateReferenceUpdate(oldWorkload, newWorkload) {
+		forbidden := field.Forbidden(field.NewPath("spec", "workloadTemplateRef"), "reference is immutable")
+
+		return nil, apierrors.NewInvalid(dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(), oldWorkload.Name, field.ErrorList{forbidden})
+	}
+
+	return webhook.validate(ctx, newWorkload)
 }
 
 func (webhook *DockyardsWorkload) validate(ctx context.Context, workload *dockyardsv1.Workload) (admission.Warnings, error) {
@@ -147,4 +158,20 @@ func (webhook *DockyardsWorkload) validate(ctx context.Context, workload *dockya
 	}
 
 	return allWarnings, nil
+}
+
+func (webhook *DockyardsWorkload) validTemplateReferenceUpdate(oldWorkload, newWorkload *dockyardsv1.Workload) bool {
+	if oldWorkload.Spec.WorkloadTemplateRef == nil {
+		return true
+	}
+
+	if oldWorkload.Spec.WorkloadTemplateRef != nil && newWorkload.Spec.WorkloadTemplateRef == nil {
+		return false
+	}
+
+	if newWorkload.Spec.WorkloadTemplateRef.Name != oldWorkload.Spec.WorkloadTemplateRef.Name {
+		return false
+	}
+
+	return true
 }
