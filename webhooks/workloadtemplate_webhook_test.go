@@ -74,7 +74,7 @@ func TestWorkloadTemplateWebhook_Create(t *testing.T) {
 				dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadTemplateKind).GroupKind(),
 				"test-workload-definition",
 				field.ErrorList{
-					field.NotFound(
+					field.Required(
 						field.NewPath("spec", "source", "#workload"),
 						"must have workload definition",
 					),
@@ -97,7 +97,7 @@ func TestWorkloadTemplateWebhook_Create(t *testing.T) {
 				dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadTemplateKind).GroupKind(),
 				"test-cluster-definition",
 				field.ErrorList{
-					field.NotFound(
+					field.Required(
 						field.NewPath("spec", "source", "#cluster"),
 						"must have cluster definition",
 					),

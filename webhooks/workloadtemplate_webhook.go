@@ -100,7 +100,7 @@ func (webhook *DockyardsWorkloadTemplate) validate(workloadTemplate *dockyardsv1
 
 		x := v.LookupPath(cue.MakePath(cue.Def("cluster")))
 		if !x.Exists() {
-			notFound := field.NotFound(
+			notFound := field.Required(
 				field.NewPath("spec", "source").Child("#cluster"),
 				"must have cluster definition",
 			)
@@ -110,7 +110,7 @@ func (webhook *DockyardsWorkloadTemplate) validate(workloadTemplate *dockyardsv1
 
 		x = v.LookupPath(cue.MakePath(cue.Def("workload")))
 		if !x.Exists() {
-			notFound := field.NotFound(
+			notFound := field.Required(
 				field.NewPath("spec", "source").Child("#workload"),
 				"must have workload definition",
 			)
