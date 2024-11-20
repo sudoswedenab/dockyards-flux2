@@ -96,6 +96,8 @@ func (webhook *DockyardsWorkloadTemplate) validate(workloadTemplate *dockyardsv1
 			)
 
 			errorList = append(errorList, invalid)
+
+			break
 		}
 
 		x := v.LookupPath(cue.MakePath(cue.Def("cluster")))
