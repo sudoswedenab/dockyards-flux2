@@ -58,7 +58,7 @@ func TestWorkloadTemplateWebhook_Create(t *testing.T) {
 					field.Invalid(
 						field.NewPath("spec", "source"),
 						"",
-						"err: build constraints exclude all CUE files in .:\n    webhooks/template.cue: no package name",
+						"build constraints exclude all CUE files in .:\n    webhooks/template.cue: no package name",
 					),
 				},
 			),
