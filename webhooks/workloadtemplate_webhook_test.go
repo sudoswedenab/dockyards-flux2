@@ -29,6 +29,11 @@ func mustReadAll(filename string) string {
 }
 
 func TestWorkloadTemplateWebhook_Create(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	tt := []struct {
 		name             string
 		workloadTemplate dockyardsv1.WorkloadTemplate
@@ -116,6 +121,32 @@ func TestWorkloadTemplateWebhook_Create(t *testing.T) {
 					Type:   dockyardsv1.WorkloadTemplateTypeCue,
 				},
 			},
+		},
+		{
+			name: "test unknown import",
+			workloadTemplate: dockyardsv1.WorkloadTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-unknown-import",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadTemplateSpec{
+					Source: mustReadAll("testdata/unknownimport.cue"),
+					Type:   dockyardsv1.WorkloadTemplateTypeCue,
+				},
+			},
+			expected: apierrors.NewInvalid(
+				dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadTemplateKind).GroupKind(),
+				"test-unknown-import",
+				field.ErrorList{
+					field.Invalid(
+						field.NewPath("spec", "source"),
+						`"dockyards.io/unknown"`,
+						`import failed: `+wd+`/template.cue:4:2: `+
+							`cannot find package "dockyards.io/unknown": cannot find module providing `+
+							`package dockyards.io/unknown`,
+					),
+				},
+			),
 		},
 	}
 

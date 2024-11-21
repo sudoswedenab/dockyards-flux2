@@ -1,14 +1,17 @@
 package webhooks
 
 import (
+	"bufio"
 	"context"
-	"fmt"
+	"io"
 	"os"
 	"path"
+	"strings"
 
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	cueerrors "cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/load"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,13 +78,26 @@ func (webhook *DockyardsWorkloadTemplate) validate(workloadTemplate *dockyardsv1
 
 	var errorList field.ErrorList
 
+	reader := strings.NewReader(workloadTemplate.Spec.Source)
+
 	for _, instance := range instances {
 		if instance.Err != nil {
+			position := instance.Err.Position()
+
+			_, err := reader.Seek(int64(position.Offset()), io.SeekStart)
+			if err != nil {
+				return err
+			}
+
+			scanner := bufio.NewScanner(reader)
+			scanner.Scan()
+
 			invalid := field.Invalid(
 				field.NewPath("spec", "source"),
-				workloadTemplate.Spec.Source,
-				fmt.Sprintf("err: %s", instance.Err),
+				scanner.Text(),
+				instance.Err.Error(),
 			)
+
 			errorList = append(errorList, invalid)
 
 			break
@@ -89,13 +105,27 @@ func (webhook *DockyardsWorkloadTemplate) validate(workloadTemplate *dockyardsv1
 
 		v := cuectx.BuildInstance(instance)
 		if v.Err() != nil {
-			invalid := field.Invalid(
-				field.NewPath("spec", "source"),
-				workloadTemplate.Spec.Source,
-				fmt.Sprintf("err: %s", v.Err()),
-			)
+			cueerrs := cueerrors.Errors(v.Err())
 
-			errorList = append(errorList, invalid)
+			for _, cueerr := range cueerrs {
+				position := cueerr.Position()
+
+				_, err := reader.Seek(int64(position.Offset()), io.SeekStart)
+				if err != nil {
+					return err
+				}
+
+				scanner := bufio.NewScanner(reader)
+				scanner.Scan()
+
+				invalid := field.Invalid(
+					field.NewPath("spec", "source"),
+					scanner.Text(),
+					cueerr.Error(),
+				)
+
+				errorList = append(errorList, invalid)
+			}
 
 			break
 		}
