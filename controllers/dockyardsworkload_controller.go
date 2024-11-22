@@ -22,6 +22,7 @@ import (
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloads,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloadtemplates,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=worktrees,verbs=create;get;list;patch;watch
 // +kubebuilder:rbac:groups=helm.toolkit.fluxcd.io,resources=*,verbs=create;get;list;patch;watch
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=*,verbs=create;get;list;patch;watch
 // +kubebuilder:rbac:groups=source.toolkit.fluxcd.io,resources=*,verbs=create;get;list;patch;watch

@@ -99,8 +99,10 @@ rules:
   resources:
   - worktrees
   verbs:
+  - create
   - get
   - list
+  - patch
   - watch
 - apiGroups:
   - helm.toolkit.fluxcd.io
