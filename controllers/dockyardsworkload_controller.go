@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"path"
 
@@ -204,7 +205,7 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 				return err
 			}
 
-			ensureInt64(nestedMap)
+			ensureValidJSON(nestedMap)
 
 			err = unstructured.SetNestedMap(u.Object, nestedMap, "spec")
 			if err != nil {
@@ -225,15 +226,17 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
-func ensureInt64(x map[string]any) {
+func ensureValidJSON(x map[string]any) {
 	for k, v := range x {
 		switch t := v.(type) {
 		case map[string]any:
-			ensureInt64(t)
+			ensureValidJSON(t)
 		case int32:
 			x[k] = int64(t)
 		case int:
 			x[k] = int64(t)
+		case []byte:
+			x[k] = base64.StdEncoding.EncodeToString(t)
 		}
 	}
 }
