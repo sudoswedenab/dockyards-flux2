@@ -8,16 +8,20 @@ import (
 
 	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/apiutil"
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
+	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3/index"
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/load"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloads,verbs=get;list;watch
@@ -227,6 +231,42 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	return ctrl.Result{}, nil
 }
 
+func (r *DockyardsWorkloadReconciler) workloadTemplateToWorkloads(ctx context.Context, obj client.Object) []ctrl.Request {
+	workloadTemplate, ok := obj.(*dockyardsv1.WorkloadTemplate)
+	if !ok {
+		return nil
+	}
+
+	ref := corev1.TypedObjectReference{
+		Kind:      dockyardsv1.WorkloadTemplateKind,
+		Name:      workloadTemplate.Name,
+		Namespace: &workloadTemplate.Namespace,
+	}
+
+	matchingFields := client.MatchingFields{
+		index.WorkloadTemplateReferenceField: index.TypedObjectRef(&ref),
+	}
+
+	var workloadList dockyardsv1.WorkloadList
+	err := r.List(ctx, &workloadList, matchingFields)
+	if err != nil {
+		panic(err)
+	}
+
+	result := []ctrl.Request{}
+
+	for _, workload := range workloadList.Items {
+		result = append(result, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      workload.Name,
+				Namespace: workload.Namespace,
+			},
+		})
+	}
+
+	return result
+}
+
 func ensureValidJSON(x map[string]any) {
 	for k, v := range x {
 		switch t := v.(type) {
@@ -247,7 +287,13 @@ func (r *DockyardsWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	_ = dockyardsv1.AddToScheme(scheme)
 
-	err := ctrl.NewControllerManagedBy(mgr).For(&dockyardsv1.Workload{}).Complete(r)
+	err := ctrl.NewControllerManagedBy(mgr).
+		For(&dockyardsv1.Workload{}).
+		Watches(
+			&dockyardsv1.WorkloadTemplate{},
+			handler.EnqueueRequestsFromMapFunc(r.workloadTemplateToWorkloads),
+		).
+		Complete(r)
 	if err != nil {
 		return err
 	}

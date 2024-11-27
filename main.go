@@ -6,10 +6,13 @@ import (
 	"os"
 	"os/signal"
 
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
+	"bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3/index"
 	"bitbucket.org/sudosweden/dockyards-flux2/controllers"
 	"bitbucket.org/sudosweden/dockyards-flux2/webhooks"
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/cluster-api/controllers/remote"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -53,15 +56,27 @@ func main() {
 
 	cfg.WarningHandler = &w
 
+	scheme := runtime.NewScheme()
+
+	_ = dockyardsv1.AddToScheme(scheme)
+
 	options := manager.Options{
 		Metrics: metricsserver.Options{
 			BindAddress: metricsBindAddress,
 		},
+		Scheme: scheme,
 	}
 
 	mgr, err := ctrl.NewManager(cfg, options)
 	if err != nil {
 		logger.Error("error creating manager", "err", err)
+
+		os.Exit(1)
+	}
+
+	err = mgr.GetFieldIndexer().IndexField(ctx, &dockyardsv1.Workload{}, index.WorkloadTemplateReferenceField, index.ByWorkloadTemplateReference)
+	if err != nil {
+		logger.Error("error adding index for workload", "err", err)
 
 		os.Exit(1)
 	}
