@@ -29,9 +29,11 @@ func (r *DockyardsWorktreeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Info("reconcile")
+	if dockyardsWorktree.Status.URL == nil {
+		return ctrl.Result{}, nil
+	}
 
-	if dockyardsWorktree.Status.URL == nil || dockyardsWorktree.Status.ReferenceName == nil {
+	if dockyardsWorktree.Status.ReferenceName == nil && dockyardsWorktree.Status.CommitHash == nil {
 		return ctrl.Result{}, nil
 	}
 
@@ -56,8 +58,16 @@ func (r *DockyardsWorktreeReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		gitRepository.Spec.URL = *dockyardsWorktree.Status.URL
 		gitRepository.Spec.Interval = metav1.Duration{Duration: time.Minute * 5}
 
-		gitRepository.Spec.Reference = &sourcev1.GitRepositoryRef{
-			Name: *dockyardsWorktree.Status.ReferenceName,
+		if dockyardsWorktree.Status.ReferenceName != nil {
+			gitRepository.Spec.Reference = &sourcev1.GitRepositoryRef{
+				Name: *dockyardsWorktree.Status.ReferenceName,
+			}
+		}
+
+		if dockyardsWorktree.Status.CommitHash != nil {
+			gitRepository.Spec.Reference = &sourcev1.GitRepositoryRef{
+				Commit: *dockyardsWorktree.Status.CommitHash,
+			}
 		}
 
 		return nil
