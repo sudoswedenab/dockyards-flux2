@@ -89,6 +89,12 @@ rules:
 - apiGroups:
   - dockyards.io
   resources:
+  - workloads/status
+  verbs:
+  - patch
+- apiGroups:
+  - dockyards.io
+  resources:
   - workloadtemplates
   verbs:
   - get

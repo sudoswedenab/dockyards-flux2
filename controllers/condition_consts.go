@@ -22,3 +22,16 @@ const (
 	UnsupportedDeploymentReferenceKindReason = "UnsupportedDeploymentReferenceKind"
 	DeploymentMissingReason                  = "DeploymentMissing"
 )
+
+const (
+	WaitingForWorkloadTemplateReason    = "WaitingForWorkloadTemplate"
+	IncorrectWorkloadTemplateTypeReason = "IncorrectWorkloadTemplateType"
+	LoadInstanceFailedReason            = "LoadInstanceFailed"
+	BuildInstanceFailedReason           = "BuildInstanceFailed"
+	LookupPathFailedReason              = "LookupPathFailed"
+	FillPathFailedReason                = "FillPathFailed"
+	ValidateFailedReason                = "ValidateFailed"
+	FieldsFailedReason                  = "FieldsFailed"
+	DecodeFailedReason                  = "DecodeFailed"
+	ReconcileFailedReason               = "ReconcileFailed"
+)

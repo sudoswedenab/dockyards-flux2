@@ -13,17 +13,21 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/load"
+	"github.com/fluxcd/pkg/runtime/conditions"
+	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
+// +kubebuilder:rbac:groups=dockyards.io,resources=workloads/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloads,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloadtemplates,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=worktrees,verbs=create;get;list;patch;watch
@@ -35,16 +39,38 @@ type DockyardsWorkloadReconciler struct {
 	client.Client
 }
 
-func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := ctrl.LoggerFrom(ctx)
-
+func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, reterr error) {
 	var workload dockyardsv1.Workload
 	err := r.Get(ctx, req.NamespacedName, &workload)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, &workload)
+	patchHelper, err := patch.NewHelper(&workload, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	defer func() {
+		err := patchHelper.Patch(ctx, &workload)
+		if err != nil {
+			result = ctrl.Result{}
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
+	result, err = r.reconcileWorkloadTemplate(ctx, &workload)
+	if err != nil {
+		return result, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DockyardsWorkloadReconciler) reconcileWorkloadTemplate(ctx context.Context, workload *dockyardsv1.Workload) (ctrl.Result, error) {
+	logger := ctrl.LoggerFrom(ctx)
+
+	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, workload)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -77,13 +103,13 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	if apierrors.IsNotFound(err) {
-		logger.Info("ignoring workload with missing template reference")
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, WaitingForWorkloadTemplateReason, "")
 
 		return ctrl.Result{}, nil
 	}
 
 	if workloadTemplate.Spec.Type != dockyardsv1.WorkloadTemplateTypeCue {
-		logger.Info("ignoring workload template with unsupported type")
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, IncorrectWorkloadTemplateTypeReason, "")
 
 		return ctrl.Result{}, nil
 	}
@@ -107,7 +133,7 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	})
 
 	if len(instances) != 1 {
-		logger.Info("ignoring unexpected instances", "count", len(instances))
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, LoadInstanceFailedReason, "incorrect instance count %d", len(instances))
 
 		return ctrl.Result{}, nil
 	}
@@ -116,45 +142,51 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	value := cuectx.BuildInstance(instance)
 	if value.Err() != nil {
-		logger.Error(err, "error building instance")
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, BuildInstanceFailedReason, "%s", err)
 
-		return ctrl.Result{}, value.Err()
+		return ctrl.Result{}, nil
 	}
 
 	lookup := value.LookupPath(cue.MakePath(cue.Def("#workload")))
 	if lookup.Err() != nil {
-		logger.Error(lookup.Err(), "lookup path error")
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, LookupPathFailedReason, "%s", lookup.Err())
 
-		return ctrl.Result{}, lookup.Err()
+		return ctrl.Result{}, nil
 	}
 
 	lookup = value.LookupPath(cue.MakePath(cue.Def("#cluster")))
 	if lookup.Err() != nil {
-		logger.Error(lookup.Err(), "lookup path error")
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, LookupPathFailedReason, "%s", lookup.Err())
 
-		return ctrl.Result{}, lookup.Err()
+		return ctrl.Result{}, nil
 	}
 
 	v := value.FillPath(cue.MakePath(cue.Def("#cluster")), ownerCluster)
 	if v.Err() != nil {
-		return ctrl.Result{}, v.Err()
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, FillPathFailedReason, "%s", v.Err())
+
+		return ctrl.Result{}, nil
 	}
 
 	v = v.FillPath(cue.MakePath(cue.Def("#workload")), &workload)
 	if v.Err() != nil {
-		return ctrl.Result{}, v.Err()
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, FillPathFailedReason, "%s", v.Err())
+
+		return ctrl.Result{}, nil
 	}
 
 	err = v.Validate()
 	if err != nil {
-		logger.Error(err, "error validating value")
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, ValidateFailedReason, "%s", err)
 
-		return ctrl.Result{}, err
+		return ctrl.Result{}, nil
 	}
 
 	iterator, err := v.Fields()
 	if err != nil {
-		return ctrl.Result{}, err
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, FieldsFailedReason, "%s", err)
+
+		return ctrl.Result{}, nil
 	}
 
 	for iterator.Next() {
@@ -162,22 +194,22 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 		err := value.Validate(cue.Concrete(true))
 		if err != nil {
-			logger.Error(err, "error validating final value")
+			conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, ValidateFailedReason, "%s", err)
 
 			cueerrors := errors.Errors(err)
 			for _, cueerr := range cueerrors {
-				logger.Error(cueerr, "cue error")
+				logger.Error(cueerr, "cue error validating field")
 			}
 
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		}
 
 		var u unstructured.Unstructured
 		err = value.Decode(&u)
 		if err != nil {
-			logger.Error(err, "error decoding value into unstructured", "value", value)
+			conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, DecodeFailedReason, "%s", err)
 
-			return ctrl.Result{}, err
+			return ctrl.Result{}, nil
 		}
 
 		operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &u, func() error {
@@ -220,13 +252,17 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			return nil
 		})
 		if err != nil {
-			return ctrl.Result{}, err
+			conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, ReconcileFailedReason, "%s", err)
+
+			return ctrl.Result{}, nil
 		}
 
 		if operationResult != controllerutil.OperationResultNone {
 			logger.Info("reconciled unstructured", "name", u.GetName(), "result", operationResult)
 		}
 	}
+
+	conditions.MarkTrue(workload, dockyardsv1.WorkloadTemplateReconciledCondition, dockyardsv1.ReadyReason, "")
 
 	return ctrl.Result{}, nil
 }
