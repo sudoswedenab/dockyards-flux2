@@ -34,4 +34,6 @@ const (
 	FieldsFailedReason                  = "FieldsFailed"
 	DecodeFailedReason                  = "DecodeFailed"
 	ReconcileFailedReason               = "ReconcileFailed"
+	KustomizationReconcilingReason      = "KustomizationReconciling"
+	HelmReleaseReconcilingReason        = "HelmReleaseReconciling"
 )

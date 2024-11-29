@@ -13,6 +13,8 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 	"cuelang.org/go/cue/errors"
 	"cuelang.org/go/cue/load"
+	helmv2 "github.com/fluxcd/helm-controller/api/v2"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/pkg/runtime/conditions"
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
@@ -21,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -52,6 +55,22 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}
 
 	defer func() {
+		summaryConditions := []string{
+			dockyardsv1.WorkloadTemplateReconciledCondition,
+			dockyardsv1.ReconcilingCondition,
+		}
+
+		negativePolarityConditions := []string{
+			dockyardsv1.ReconcilingCondition,
+		}
+
+		conditions.SetSummary(
+			&workload,
+			dockyardsv1.ReadyCondition,
+			conditions.WithConditions(summaryConditions...),
+			conditions.WithNegativePolarityConditions(negativePolarityConditions...),
+		)
+
 		err := patchHelper.Patch(ctx, &workload)
 		if err != nil {
 			result = ctrl.Result{}
@@ -60,6 +79,11 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 	}()
 
 	result, err = r.reconcileWorkloadTemplate(ctx, &workload)
+	if err != nil {
+		return result, err
+	}
+
+	result, err = r.reconcileReconcilingCondition(ctx, &workload)
 	if err != nil {
 		return result, err
 	}
@@ -215,10 +239,12 @@ func (r *DockyardsWorkloadReconciler) reconcileWorkloadTemplate(ctx context.Cont
 		operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &u, func() error {
 			references := []metav1.OwnerReference{
 				{
-					APIVersion: dockyardsv1.GroupVersion.String(),
-					Kind:       dockyardsv1.WorkloadKind,
-					Name:       workload.Name,
-					UID:        workload.UID,
+					APIVersion:         dockyardsv1.GroupVersion.String(),
+					Kind:               dockyardsv1.WorkloadKind,
+					Name:               workload.Name,
+					UID:                workload.UID,
+					BlockOwnerDeletion: ptr.To(true),
+					Controller:         ptr.To(true),
 				},
 			}
 
@@ -263,6 +289,46 @@ func (r *DockyardsWorkloadReconciler) reconcileWorkloadTemplate(ctx context.Cont
 	}
 
 	conditions.MarkTrue(workload, dockyardsv1.WorkloadTemplateReconciledCondition, dockyardsv1.ReadyReason, "")
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DockyardsWorkloadReconciler) reconcileReconcilingCondition(ctx context.Context, workload *dockyardsv1.Workload) (ctrl.Result, error) {
+	matchingLabels := client.MatchingLabels{
+		dockyardsv1.LabelWorkloadName: workload.Name,
+	}
+
+	inNamespace := client.InNamespace(workload.Namespace)
+
+	var kustomizationList kustomizev1.KustomizationList
+	err := r.List(ctx, &kustomizationList, matchingLabels, inNamespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	for _, kustomization := range kustomizationList.Items {
+		if conditions.IsReconciling(&kustomization) {
+			conditions.MarkTrue(workload, dockyardsv1.ReconcilingCondition, KustomizationReconcilingReason, "")
+
+			return ctrl.Result{}, nil
+		}
+	}
+
+	var helmReleaseList helmv2.HelmReleaseList
+	err = r.List(ctx, &helmReleaseList, matchingLabels, inNamespace)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	for _, helmRelease := range helmReleaseList.Items {
+		if conditions.IsReconciling(&helmRelease) {
+			conditions.MarkTrue(workload, dockyardsv1.ReconcilingCondition, HelmReleaseReconcilingReason, "")
+
+			return ctrl.Result{}, nil
+		}
+	}
+
+	conditions.Delete(workload, dockyardsv1.ReconcilingCondition)
 
 	return ctrl.Result{}, nil
 }
@@ -325,6 +391,8 @@ func (r *DockyardsWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&dockyardsv1.Workload{}).
+		Owns(&kustomizev1.Kustomization{}).
+		Owns(&helmv2.HelmRelease{}).
 		Watches(
 			&dockyardsv1.WorkloadTemplate{},
 			handler.EnqueueRequestsFromMapFunc(r.workloadTemplateToWorkloads),
