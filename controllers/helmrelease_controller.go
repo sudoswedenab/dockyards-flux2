@@ -8,6 +8,7 @@ import (
 	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
 	"bitbucket.org/sudosweden/dockyards-flux2/pkg/ingressutil"
 	helmv2 "github.com/fluxcd/helm-controller/api/v2"
+	"github.com/fluxcd/pkg/runtime/conditions"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/cluster-api/controllers/remote"
@@ -79,6 +80,12 @@ func (r *HelmReleaseReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	if ownerCluster == nil {
 		logger.Info("ignoring deployment without owner cluster")
+
+		return ctrl.Result{}, nil
+	}
+
+	if conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
+		logger.Info("ignoring helm release without ready owner cluster")
 
 		return ctrl.Result{}, nil
 	}
