@@ -47,8 +47,6 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	logger.Info("reconcile kustomize deployment")
-
 	patchHelper, err := patch.NewHelper(&kustomizeDeployment, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -140,7 +138,9 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("reconciled git repository", "result", operationResult)
+	if operationResult != controllerutil.OperationResultNone {
+		logger.Info("reconciled git repository", "result", operationResult)
+	}
 
 	kustomization := kustomizev1.Kustomization{
 		ObjectMeta: metav1.ObjectMeta{
@@ -196,7 +196,9 @@ func (r *KustomizeDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("reconciled kustomization", "result", operationResult)
+	if operationResult != controllerutil.OperationResultNone {
+		logger.Info("reconciled kustomization", "result", operationResult)
+	}
 
 	kustomizationReadyCondition := meta.FindStatusCondition(kustomization.Status.Conditions, fluxcdmeta.ReadyCondition)
 	if kustomizationReadyCondition == nil {
