@@ -59,8 +59,6 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, nil
 	}
 
-	logger.Info("reconcile helm deployment")
-
 	ownerDeployment, err := apiutil.GetOwnerDeployment(ctx, r.Client, &helmDeployment)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -118,7 +116,9 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("reconciled helm repository", "result", operationResult)
+	if operationResult != controllerutil.OperationResultNone {
+		logger.Info("reconciled helm repository", "result", operationResult)
+	}
 
 	helmRelease := helmv2.HelmRelease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -186,7 +186,9 @@ func (r *HelmDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("reconciled helm release", "result", operationResult)
+	if operationResult != controllerutil.OperationResultNone {
+		logger.Info("reconciled helm release", "result", operationResult)
+	}
 
 	if operationResult == controllerutil.OperationResultCreated {
 		return ctrl.Result{}, nil
