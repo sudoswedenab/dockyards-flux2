@@ -14,11 +14,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// +kubebuilder:groups=dockyards.io,resources=containerimagedeployments,verbs=get;list;watch
-// +kubebuilder:groups=dockyards.io,resources=deployments,verbs=get;list;watch
-// +kubebuilder:groups=dockyards.io,resources=deployments/status,verbs=patch
-// +kubebuilder:groups=dockyards.io,resources=helmdeployments,verbs=get;list;watch
-// +kubebuilder:groups=dockyards.io,resources=kustomizedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=containerimagedeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments,verbs=get;list;patch;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=deployments/status,verbs=patch
+// +kubebuilder:rbac:groups=dockyards.io,resources=helmdeployments,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=kustomizedeployments,verbs=get;list;watch
 
 type DockyardsDeploymentReconciler struct {
 	client.Client
