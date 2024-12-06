@@ -23,20 +23,6 @@ rules:
 - apiGroups:
   - dockyards.io
   resources:
-  - containerimagedeployments
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - dockyards.io
-  resources:
-  - containerimagedeployments/status
-  verbs:
-  - patch
-- apiGroups:
-  - dockyards.io
-  resources:
   - deployments
   verbs:
   - get
