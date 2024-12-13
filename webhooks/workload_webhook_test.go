@@ -405,6 +405,30 @@ func TestDockyardsWorkload_ValidateCreate(t *testing.T) {
 				},
 			),
 		},
+		{
+			name: "test empty namespace",
+			workloadTemplate: dockyardsv1.WorkloadTemplate{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadTemplateSpec{
+					Source: mustReadAll("testdata/noinput.cue"),
+				},
+			},
+			workload: dockyardsv1.Workload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-empty-namespace",
+					Namespace: "testing",
+				},
+				Spec: dockyardsv1.WorkloadSpec{
+					WorkloadTemplateRef: &corev1.TypedObjectReference{
+						Kind: dockyardsv1.WorkloadTemplateKind,
+						Name: "test",
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range tt {

@@ -80,7 +80,11 @@ func (webhook *DockyardsWorkload) validate(ctx context.Context, workload *dockya
 
 	objectKey := client.ObjectKey{
 		Name:      workload.Spec.WorkloadTemplateRef.Name,
-		Namespace: *workload.Spec.WorkloadTemplateRef.Namespace,
+		Namespace: workload.Namespace,
+	}
+
+	if workload.Spec.WorkloadTemplateRef.Namespace != nil {
+		objectKey.Namespace = *workload.Spec.WorkloadTemplateRef.Namespace
 	}
 
 	var workloadTemplate dockyardsv1.WorkloadTemplate
