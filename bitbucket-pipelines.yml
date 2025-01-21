@@ -76,11 +76,17 @@ definitions:
       name: test
       script:
       - go test ./... -v
+  - step: &generate
+      name: generate
+      script:
+      - go generate
+      - git diff --exit-code
 
 pipelines:
   default:
   - step: *default
   - step: *vendor
+  - step: *generate
   - parallel:
       steps:
       - step: *test
@@ -93,6 +99,7 @@ pipelines:
     'v*':
     - step: *tag
     - step: *vendor
+    - step: *generate
     - parallel:
         steps:
         - step: *test
