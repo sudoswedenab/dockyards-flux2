@@ -1,0 +1,108 @@
+package template
+
+import (
+	"encoding/yaml"
+
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
+	storagev1 "k8s.io/api/storage/v1"
+	corev1 "k8s.io/api/core/v1"
+	kustomize "sigs.k8s.io/kustomize/api/types"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
+)
+
+#Input: {
+	basePath!: string
+	imageName: string | *"docker.io/openebs/provisioner-localpv"
+	imageTag:  string | *"4.1.1"
+}
+
+#cluster: dockyardsv1.#Cluster
+
+#workload: dockyardsv1.#Workload
+#workload: spec: input: #Input
+
+#_config: {
+	name!:  string
+	value!: string
+}
+
+_config: [#_config]: {
+	config: [
+		{
+			name:  "StorageType"
+			value: "hostpath"
+		},
+		{
+			name:  "BasePath"
+			value: #workload.spec.input.basePath
+			test:  true
+		},
+	]
+}
+
+_storageClass: storagev1.#StorageClass & {
+	apiVersion: "storage.k8s.io/v1"
+	kind:       "StorageClass"
+	metadata: {
+		name: "openebs-hostpath"
+		annotations: {
+			"cas.openebs.io/config": yaml.Marshal(_config)
+			"openebs.io/cas-type":   "local"
+		}
+	}
+	provisioner:       "openebs.io/local"
+	volumeBindingMode: storagev1.#VolumeBindingWaitForFirstConsumer
+	reclaimPolicy:     corev1.#PersistentVolumeReclaimDelete
+}
+
+_resource: "https://raw.githubusercontent.com/openebs/dynamic-localpv-provisioner/" + #workload.spec.input.imageTag + "/deploy/kubectl/hostpath-operator.yaml"
+
+_kustomization: kustomize.#Kustomization & {
+	apiVersion: kustomize.#KustomizationVersion
+	kind:       kustomize.#KustomizationKind
+	resources: [
+		_resource,
+	]
+	images: [
+		{
+			name:    "openebs/provisioner-localpv:ci"
+			newName: #workload.spec.input.imageName
+			newTag:  #workload.spec.input.imageTag
+		},
+	]
+}
+
+worktree: dockyardsv1.#Worktree & {
+	apiVersion: "dockyards.io/v1alpha3"
+	kind:       dockyardsv1.#WorktreeKind
+	metadata: {
+		name:      #workload.metadata.name
+		namespace: #workload.metadata.namespace
+	}
+	spec: {
+		files: {
+			"storageclass.yaml":  '\(yaml.Marshal(_storageClass))'
+			"kustomization.yaml": '\(yaml.Marshal(_kustomization))'
+		}
+	}
+}
+
+kustomization: kustomizev1.#Kustomization & {
+	apiVersion: "kustomize.toolkit.fluxcd.io/v1"
+	kind:       kustomizev1.#KustomizationKind
+	metadata: {
+		name:      #workload.metadata.name
+		namespace: #workload.metadata.namespace
+	}
+	spec: {
+		interval: "5m"
+		kubeConfig: secretRef: name: #cluster.metadata.name + "-kubeconfig"
+		prune: true
+		sourceRef: {
+			kind: sourcev1.#GitRepositoryKind
+			name: worktree.metadata.name
+		}
+		targetNamespace: #workload.spec.targetNamespace
+	}
+}

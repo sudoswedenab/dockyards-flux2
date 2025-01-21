@@ -1,0 +1,105 @@
+package template
+
+import (
+	"encoding/yaml"
+
+	corev1 "k8s.io/api/core/v1"
+	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
+	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
+	sourcev1 "github.com/fluxcd/source-controller/api/v1"
+)
+
+#Ref: {branch: string} | {tag: string} | {commit: string} | {name: string}
+
+#Input: {
+	url!:            string & =~"^(http?s|ssh)://.*$"
+	ref!:            #Ref
+	path:            string | *"."
+	interval:        string & "^([0-9]+(\\.[0-9]+)?(ms|s|m|h))+$" | *"5m"
+	createNamespace: bool | *true
+}
+
+#cluster: dockyardsv1.#Cluster
+
+#workload: dockyardsv1.#Workload
+#workload: spec: input: #Input
+
+if #workload.spec.input.createNamespace == true {
+	_namespace: corev1.#Namespace & {
+		apiVersion: "v1"
+		kind:       "Namespace"
+		metadata: name: #workload.spec.targetNamespace
+	}
+
+	worktree: dockyardsv1.#Worktree & {
+		apiVersion: "dockyards.io/v1alpha3"
+		kind:       dockyardsv1.#WorktreeKind
+		metadata: {
+			name:      #workload.metadata.name + "-namespace"
+			namespace: #workload.metadata.namespace
+		}
+		spec: files: "namespace.yaml": '\(yaml.Marshal(_namespace))'
+	}
+
+	kustomizationNamespace: kustomizev1.#Kustomization & {
+		apiVersion: "kustomize.toolkit.fluxcd.io/v1"
+		kind:       kustomizev1.#KustomizationKind
+		metadata: {
+			name:      #workload.metadata.name + "-namespace"
+			namespace: #workload.metadata.namespace
+		}
+		spec: {
+			interval: "15m"
+			kubeConfig: secretRef: name: #cluster.metadata.name + "-kubeconfig"
+			prune: true
+			sourceRef: {
+				kind: sourcev1.#GitRepositoryKind
+				name: worktree.metadata.name
+			}
+		}
+	}
+}
+
+gitRepository: sourcev1.#GitRepository & {
+	apiVersion: "source.toolkit.fluxcd.io/v1"
+	kind:       sourcev1.#GitRepositoryKind
+	metadata: {
+		name:      #workload.metadata.name
+		namespace: #workload.metadata.namespace
+	}
+	spec: {
+		interval: "5m"
+		url:      #workload.spec.input.url
+		ref: {
+			#workload.spec.input.ref
+		}
+	}
+}
+
+kustomization: kustomizev1.#Kustomization & {
+	apiVersion: "kustomize.toolkit.fluxcd.io/v1"
+	kind:       kustomizev1.#KustomizationKind
+	metadata: {
+		name:      #workload.metadata.name
+		namespace: #workload.metadata.namespace
+	}
+	spec: {
+		if #workload.spec.input.createNamespace == true {
+			dependsOn: [
+				{
+					name: #workload.metadata.name + "-namespace"
+				},
+			]
+		}
+		interval: #workload.spec.input.interval
+		kubeConfig: secretRef: name: #cluster.metadata.name + "-kubeconfig"
+		prune:         true
+		path:          #workload.spec.input.path
+		retryInterval: "1m"
+		sourceRef: {
+			kind: gitRepository.kind
+			name: gitRepository.metadata.name
+		}
+		targetNamespace: #workload.spec.targetNamespace
+	}
+}
