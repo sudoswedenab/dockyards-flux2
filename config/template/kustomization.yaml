@@ -1,0 +1,13 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+- workloadtemplate_argocd.yaml
+- workloadtemplate_certmanager.yaml
+- workloadtemplate_cloudproviderforclouddirector.yaml
+- workloadtemplate_containerimage.yaml
+- workloadtemplate_externaldns.yaml
+- workloadtemplate_gitrepository.yaml
+- workloadtemplate_helmchart.yaml
+- workloadtemplate_ingressnginx.yaml
+- workloadtemplate_openebsdynamiclocalpvprovisioner.yaml
+- workloadtemplate_prometheus.yaml
