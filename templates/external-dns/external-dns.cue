@@ -26,6 +26,12 @@ import (
 #workload: dockyardsv1.#Workload
 #workload: spec: input: #Input
 
+_namespace: corev1.#Namespace & {
+	apiVersion: "v1"
+	kind:       "Namespace"
+	metadata: name: #workload.spec.targetNamespace
+}
+
 _deployment: appsv1.#Deployment & {
 	apiVersion: "apps/v1"
 	kind:       "Deployment"
@@ -99,6 +105,7 @@ _kustomization: kustomize.#Kustomization & {
 	resources: [
 		"github.com/kubernetes-sigs/external-dns/kustomize?ref=\(#workload.spec.input.ref)",
 		"secret.yaml",
+		"namespace.yaml",
 	]
 }
 
@@ -112,6 +119,7 @@ worktree: dockyardsv1.#Worktree & {
 	spec: files: {
 		"kustomization.yaml": '\(yaml.Marshal(_kustomization))'
 		"secret.yaml":        '\(yaml.Marshal(_secret))'
+		"namespace.yaml":     '\(yaml.Marshal(_namespace))'
 	}
 }
 
