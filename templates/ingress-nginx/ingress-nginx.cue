@@ -87,13 +87,15 @@ kustomization: kustomizev1.#Kustomization & {
 	spec: {
 		interval: "15m"
 		kubeConfig: secretRef: name: #cluster.metadata.name + "-kubeconfig"
-		patches: _patches
-		prune:   true
-		path:    #workload.spec.input.path
+		patches:       _patches
+		prune:         true
+		path:          #workload.spec.input.path
+		retryInterval: "60s"
 		sourceRef: {
 			kind: gitRepository.kind
 			name: gitRepository.metadata.name
 		}
 		targetNamespace: #workload.spec.targetNamespace
+		wait:            true
 	}
 }
