@@ -138,6 +138,12 @@ func (r *DockyardsWorkloadReconciler) reconcileWorkloadTemplate(ctx context.Cont
 		return ctrl.Result{}, nil
 	}
 
+	if !workload.Spec.ClusterComponent && conditions.IsFalse(ownerCluster, dockyardsv1.ReadyCondition) {
+		conditions.MarkFalse(workload, dockyardsv1.WorkloadTemplateReconciledCondition, WaitingForClusterReadyReason, "")
+
+		return ctrl.Result{}, nil
+	}
+
 	source := load.FromString(workloadTemplate.Spec.Source)
 
 	cuectx := cuecontext.New()
@@ -369,6 +375,36 @@ func (r *DockyardsWorkloadReconciler) workloadTemplateToWorkloads(ctx context.Co
 	return result
 }
 
+func (r *DockyardsWorkloadReconciler) clusterToWorkloads(ctx context.Context, obj client.Object) []ctrl.Request {
+	cluster, ok := obj.(*dockyardsv1.Cluster)
+	if !ok {
+		return nil
+	}
+
+	matchingLabels := client.MatchingLabels{
+		dockyardsv1.LabelClusterName: cluster.Name,
+	}
+
+	var workloadList dockyardsv1.WorkloadList
+	err := r.List(ctx, &workloadList, matchingLabels, client.InNamespace(cluster.Namespace))
+	if err != nil {
+		panic(err)
+	}
+
+	result := []ctrl.Request{}
+
+	for _, workload := range workloadList.Items {
+		result = append(result, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      workload.Name,
+				Namespace: workload.Namespace,
+			},
+		})
+	}
+
+	return result
+}
+
 func ensureValidJSON(x map[string]any) {
 	for k, v := range x {
 		switch t := v.(type) {
@@ -396,6 +432,10 @@ func (r *DockyardsWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Watches(
 			&dockyardsv1.WorkloadTemplate{},
 			handler.EnqueueRequestsFromMapFunc(r.workloadTemplateToWorkloads),
+		).
+		Watches(
+			&dockyardsv1.Cluster{},
+			handler.EnqueueRequestsFromMapFunc(r.clusterToWorkloads),
 		).
 		Complete(r)
 	if err != nil {
