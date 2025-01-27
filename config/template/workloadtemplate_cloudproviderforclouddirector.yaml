@@ -99,13 +99,15 @@ spec:
         namespace: #workload.metadata.namespace
       }
       spec: {
-        interval: "5m"
+        interval: "15m"
         kubeConfig: secretRef: name: #cluster.metadata.name + "-kubeconfig"
-        prune: true
+        prune:         true
+        retryInterval: "30s"
         sourceRef: {
           kind: sourcev1.#GitRepositoryKind
           name: #workload.metadata.name
         }
+        wait: true
       }
     }
   type: dockyards.io/cue
