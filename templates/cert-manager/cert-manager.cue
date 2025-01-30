@@ -125,11 +125,13 @@ kustomization: kustomizev1.#Kustomization & {
 	spec: {
 		interval: "15m"
 		kubeConfig: secretRef: name: #cluster.metadata.name + "-kubeconfig"
-		prune: true
+		prune:         true
+		retryInterval: "60s"
 		sourceRef: {
 			kind: sourcev1.#GitRepositoryKind
 			name: worktree.metadata.name
 		}
 		targetNamespace: #workload.spec.targetNamespace
+		wait:            true
 	}
 }
