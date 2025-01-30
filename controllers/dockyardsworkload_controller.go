@@ -94,6 +94,10 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 func (r *DockyardsWorkloadReconciler) reconcileWorkloadTemplate(ctx context.Context, workload *dockyardsv1.Workload) (ctrl.Result, error) {
 	logger := ctrl.LoggerFrom(ctx)
 
+	if !workload.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, workload)
 	if err != nil {
 		return ctrl.Result{}, err
