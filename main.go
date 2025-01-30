@@ -143,6 +143,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = (&controllers.KustomizationReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr)
+	if err != nil {
+		logger.Error("error creating kustomization reconciler", "err", err)
+
+		os.Exit(1)
+	}
+
 	if enableWebhooks {
 		err := (&webhooks.DockyardsWorkloadTemplate{}).SetupWithManager(mgr)
 		if err != nil {
