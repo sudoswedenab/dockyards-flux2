@@ -97,15 +97,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controllers.KustomizeDeploymentReconciler{
-		Client: mgr.GetClient(),
-	}).SetupWithManager(mgr)
-	if err != nil {
-		logger.Error("error creating kustomize deployment reconciler", "err", err)
-
-		os.Exit(1)
-	}
-
 	err = (&controllers.HelmReleaseReconciler{
 		Client:  mgr.GetClient(),
 		Tracker: tracker,

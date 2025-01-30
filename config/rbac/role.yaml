@@ -64,14 +64,7 @@ rules:
   verbs:
   - get
   - list
-  - patch
   - watch
-- apiGroups:
-  - dockyards.io
-  resources:
-  - kustomizedeployments/status
-  verbs:
-  - patch
 - apiGroups:
   - dockyards.io
   resources:
@@ -139,7 +132,6 @@ rules:
   resources:
   - kustomizations
   verbs:
-  - create
   - get
   - list
   - patch
