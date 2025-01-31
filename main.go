@@ -13,7 +13,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/cluster-api/controllers/remote"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -77,23 +76,6 @@ func main() {
 	err = mgr.GetFieldIndexer().IndexField(ctx, &dockyardsv1.Workload{}, index.WorkloadTemplateReferenceField, index.ByWorkloadTemplateReference)
 	if err != nil {
 		logger.Error("error adding index for workload", "err", err)
-
-		os.Exit(1)
-	}
-
-	tracker, err := remote.NewClusterCacheTracker(mgr, remote.ClusterCacheTrackerOptions{})
-	if err != nil {
-		logger.Error("error creating new cluster cache tracker", "err", err)
-
-		os.Exit(1)
-	}
-
-	err = (&controllers.HelmReleaseReconciler{
-		Client:  mgr.GetClient(),
-		Tracker: tracker,
-	}).SetupWithManager(mgr)
-	if err != nil {
-		logger.Error("error creating helm release reconciler", "err", err)
 
 		os.Exit(1)
 	}
