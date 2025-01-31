@@ -428,6 +428,8 @@ func (r *DockyardsWorkloadReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	scheme := mgr.GetScheme()
 
 	_ = dockyardsv1.AddToScheme(scheme)
+	_ = helmv2.AddToScheme(scheme)
+	_ = kustomizev1.AddToScheme(scheme)
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&dockyardsv1.Workload{}).
