@@ -87,6 +87,7 @@ func (r *DockyardsWorktreeReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	scheme := mgr.GetScheme()
 
 	_ = dockyardsv1.AddToScheme(scheme)
+	_ = sourcev1.AddToScheme(scheme)
 
 	err := ctrl.NewControllerManagedBy(mgr).For(&dockyardsv1.Worktree{}).Complete(r)
 	if err != nil {
