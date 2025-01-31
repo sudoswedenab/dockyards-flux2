@@ -88,15 +88,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controllers.HelmDeploymentReconciler{
-		Client: mgr.GetClient(),
-	}).SetupWithManager(mgr)
-	if err != nil {
-		logger.Error("error creating helm deployment reconciler", "err", err)
-
-		os.Exit(1)
-	}
-
 	err = (&controllers.HelmReleaseReconciler{
 		Client:  mgr.GetClient(),
 		Tracker: tracker,
