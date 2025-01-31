@@ -98,15 +98,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = (&controllers.DockyardsDeploymentReconciler{
-		Client: mgr.GetClient(),
-	}).SetupWithManager(mgr)
-	if err != nil {
-		logger.Error("error creating helm release reconciler", "err", err)
-
-		os.Exit(1)
-	}
-
 	err = (&controllers.DockyardsWorkloadReconciler{
 		Client: mgr.GetClient(),
 	}).SetupWithManager(mgr)
