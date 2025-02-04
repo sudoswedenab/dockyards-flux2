@@ -18,6 +18,7 @@ import (
 	dnsZones!: [...string]
 	accessKeyID!:     string
 	secretAccessKey!: string
+	releaseManifest:  string | *"https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml"
 }
 
 #cluster: dockyardsv1.#Cluster
@@ -95,7 +96,7 @@ _kustomization: kustomize.#Kustomization & {
 		},
 	]
 	resources: [
-		"https://github.com/cert-manager/cert-manager/releases/download/v1.16.2/cert-manager.yaml",
+		#workload.spec.input.releaseManifest,
 		"clusterissuer.yaml",
 		"secret.yaml",
 	]
