@@ -19,6 +19,7 @@ import (
 		}
 		loadBalancerIP?: string
 	}
+	isDefaultClass: bool | *true
 }
 
 #cluster: dockyardsv1.#Cluster
@@ -73,6 +74,17 @@ _patches: [
 		target: {
 			kind:          "Deployment"
 			labelSelector: "app.kubernetes.io/component=controller"
+		}
+	},
+	if #workload.spec.input.isDefaultClass {
+		patch: """
+		- op: add
+		  path: /metadata/annotations/ingressclass.kubernetes.io~1is-default-class
+		  value: "true"
+			"""
+		target: {
+			kind: "IngressClass"
+			name: "nginx"
 		}
 	},
 ]
