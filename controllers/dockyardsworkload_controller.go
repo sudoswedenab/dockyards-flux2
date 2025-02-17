@@ -414,10 +414,6 @@ func ensureValidJSON(x map[string]any) {
 		switch t := v.(type) {
 		case map[string]any:
 			ensureValidJSON(t)
-		case int32:
-			x[k] = int64(t)
-		case int:
-			x[k] = int64(t)
 		case []byte:
 			x[k] = base64.StdEncoding.EncodeToString(t)
 		}
