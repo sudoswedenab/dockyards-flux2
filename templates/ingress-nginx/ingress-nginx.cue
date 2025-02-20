@@ -67,9 +67,9 @@ _patches: [
 	},
 	{
 		patch: """
-		  - op: replace
-		    path: /kind
-		    value: DaemonSet
+			- op: replace
+			  path: /kind
+			  value: "DaemonSet"
 			"""
 		target: {
 			kind:          "Deployment"
@@ -78,9 +78,9 @@ _patches: [
 	},
 	if #workload.spec.input.isDefaultClass {
 		patch: """
-		- op: add
-		  path: /metadata/annotations/ingressclass.kubernetes.io~1is-default-class
-		  value: "true"
+			- op: add
+			  path: /metadata/annotations/ingressclass.kubernetes.io~1is-default-class
+			  value: "true"
 			"""
 		target: {
 			kind: "IngressClass"
