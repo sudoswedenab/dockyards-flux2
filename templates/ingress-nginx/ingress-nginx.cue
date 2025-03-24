@@ -109,5 +109,6 @@ kustomization: kustomizev1.#Kustomization & {
 		}
 		targetNamespace: #workload.spec.targetNamespace
 		wait:            true
+    commonMetadata: labels: "dockyards.io/workload-name": #workload.metadata.name,
 	}
 }
