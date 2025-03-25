@@ -12,7 +12,7 @@ import (
 #Input: {
 	url:  string | *"https://github.com/kubernetes/ingress-nginx"
 	path: string | *"deploy/static/provider/cloud"
-	tag:  string | *"controller-v1.12.0"
+	tag:  string | *"controller-v1.12.1"
 	service?: {
 		annotations?: {
 			[string]: string
@@ -109,6 +109,6 @@ kustomization: kustomizev1.#Kustomization & {
 		}
 		targetNamespace: #workload.spec.targetNamespace
 		wait:            true
-    commonMetadata: labels: "dockyards.io/workload-name": #workload.metadata.name,
+		commonMetadata: labels: "dockyards.io/workload-name": #workload.metadata.name
 	}
 }
