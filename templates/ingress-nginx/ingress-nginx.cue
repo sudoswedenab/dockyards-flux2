@@ -97,6 +97,7 @@ kustomization: kustomizev1.#Kustomization & {
 		namespace: #workload.metadata.namespace
 	}
 	spec: {
+		force:    true
 		interval: "15m"
 		kubeConfig: secretRef: name: #cluster.metadata.name + "-kubeconfig"
 		patches:       _patches
