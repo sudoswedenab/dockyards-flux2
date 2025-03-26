@@ -20,6 +20,7 @@ import (
 		loadBalancerIP?: string
 	}
 	isDefaultClass: bool | *true
+	enableSSLPassThrough: bool | *true
 }
 
 #cluster: dockyardsv1.#Cluster
@@ -73,6 +74,17 @@ _patches: [
 			"""
 		target: {
 			kind:          "Deployment"
+			labelSelector: "app.kubernetes.io/component=controller"
+		}
+	},
+	if #workload.spec.input.enableSSLPassThrough {
+		patch: """
+			- op: add
+			  path: /spec/template/spec/containers/0/args/-
+			  value: "--enable-ssl-passthrough=true"
+			"""
+		target: {
+			kind:          "DaemonSet"
 			labelSelector: "app.kubernetes.io/component=controller"
 		}
 	},
