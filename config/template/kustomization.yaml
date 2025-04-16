@@ -11,3 +11,4 @@ resources:
 - workloadtemplate_ingressnginx.yaml
 - workloadtemplate_openebsdynamiclocalpvprovisioner.yaml
 - workloadtemplate_prometheus.yaml
+- workloadtemplate_prometheusstack.yaml
