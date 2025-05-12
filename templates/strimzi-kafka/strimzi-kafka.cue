@@ -210,8 +210,7 @@ _kafkaControllerNodePool: kafkav1.#KafkaNodePool & {
 			}
 		}
 		storage: {
-			type:  "jbod"
-			class: #workload.spec.input.controller.resources.storage.class
+			type: "jbod"
 			volumes: [
 				{
 					id:            0
@@ -222,6 +221,7 @@ _kafkaControllerNodePool: kafkav1.#KafkaNodePool & {
 					}
 					if #workload.spec.input.controller.resources.storage.type == "persistent-claim" {
 						size:        #workload.spec.input.controller.resources.storage.size
+						class:       #workload.spec.input.controller.resources.storage.class
 						deleteClaim: #workload.spec.input.controller.resources.storage.deleteClaim
 					}
 				},
@@ -254,8 +254,7 @@ _kafkaBrokerNodePool: kafkav1.#KafkaNodePool & {
 			}
 		}
 		storage: {
-			type:  "jbod"
-			class: #workload.spec.input.broker.resources.storage.class
+			type: "jbod"
 			volumes: [
 				{
 					id:            0
@@ -266,6 +265,7 @@ _kafkaBrokerNodePool: kafkav1.#KafkaNodePool & {
 					}
 					if #workload.spec.input.broker.resources.storage.type == "persistent-claim" {
 						size:        #workload.spec.input.broker.resources.storage.size
+						class:       #workload.spec.input.broker.resources.storage.class
 						deleteClaim: #workload.spec.input.broker.resources.storage.deleteClaim
 					}
 				},

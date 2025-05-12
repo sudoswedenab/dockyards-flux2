@@ -212,8 +212,7 @@ spec:
           }
         }
         storage: {
-          type:  "jbod"
-          class: #workload.spec.input.controller.resources.storage.class
+          type: "jbod"
           volumes: [
             {
               id:            0
@@ -224,6 +223,7 @@ spec:
               }
               if #workload.spec.input.controller.resources.storage.type == "persistent-claim" {
                 size:        #workload.spec.input.controller.resources.storage.size
+                class:       #workload.spec.input.controller.resources.storage.class
                 deleteClaim: #workload.spec.input.controller.resources.storage.deleteClaim
               }
             },
@@ -256,8 +256,7 @@ spec:
           }
         }
         storage: {
-          type:  "jbod"
-          class: #workload.spec.input.broker.resources.storage.class
+          type: "jbod"
           volumes: [
             {
               id:            0
@@ -268,6 +267,7 @@ spec:
               }
               if #workload.spec.input.broker.resources.storage.type == "persistent-claim" {
                 size:        #workload.spec.input.broker.resources.storage.size
+                class:       #workload.spec.input.broker.resources.storage.class
                 deleteClaim: #workload.spec.input.broker.resources.storage.deleteClaim
               }
             },
