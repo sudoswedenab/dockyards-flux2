@@ -21,7 +21,7 @@ import (
 #StorageQuantity: string & =~"^([0-9]+(\\.[0-9]+)?)(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$"
 
 #Input: {
-	domain: string | *".dockyards-mvqp2.trashcloud.xyz"
+	domain: string
 	operator: {
 		repository: string | *"oci://quay.io/strimzi-helm"
 		chart:      string | *"strimzi-kafka-operator"
@@ -313,8 +313,8 @@ _kafkaCluster: kafkav1.#Kafka & {
 					authentication: type: "tls"
 					configuration: {
 						class:        "nginx"
-						hostTemplate: "broker-{nodeId}." + #cluster.metadata.name + #workload.spec.input.domain
-						bootstrap: host: "bootstrap." + #cluster.metadata.name + #workload.spec.input.domain
+						hostTemplate: "broker-{nodeId}." + #workload.spec.targetNamespace + #workload.spec.input.domain
+						bootstrap: host: "bootstrap." + #workload.spec.targetNamespace + #workload.spec.input.domain
 					}
 				},
 			]
