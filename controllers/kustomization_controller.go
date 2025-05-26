@@ -16,6 +16,7 @@ import (
 )
 
 // +kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=workloadinventories,verbs=create;get;list;patch;watch
 // +kubebuilder:rbac:groups=kustomize.toolkit.fluxcd.io,resources=kustomizations,verbs=get;list;patch;watch
 
 const (
