@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.7
 
 require (
-	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20241129125912-3be35a36a96c
+	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20250526071502-fcbd032abd70
 	cuelang.org/go v0.12.0
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/fluxcd/helm-controller/api v1.1.0
