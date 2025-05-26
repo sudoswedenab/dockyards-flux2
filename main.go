@@ -107,6 +107,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	err = (&controllers.HelmReleaseReconciler{
+		Client: mgr.GetClient(),
+	}).SetupWithManager(mgr)
+	if err != nil {
+		logger.Error("error creating helm release reconciler", "err", err)
+
+		os.Exit(1)
+	}
+
 	if enableWebhooks {
 		err := (&webhooks.DockyardsWorkloadTemplate{}).SetupWithManager(mgr)
 		if err != nil {

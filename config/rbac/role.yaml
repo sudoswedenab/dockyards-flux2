@@ -15,36 +15,6 @@ rules:
 - apiGroups:
   - dockyards.io
   resources:
-  - clusters
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - dockyards.io
-  resources:
-  - deployments
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - dockyards.io
-  resources:
-  - deployments/status
-  verbs:
-  - patch
-- apiGroups:
-  - dockyards.io
-  resources:
-  - helmdeployments
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - dockyards.io
-  resources:
   - workloadinventories
   verbs:
   - create
@@ -93,6 +63,14 @@ rules:
   - get
   - list
   - patch
+  - watch
+- apiGroups:
+  - helm.toolkit.fluxcd.io
+  resources:
+  - helmreleases
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - kustomize.toolkit.fluxcd.io
