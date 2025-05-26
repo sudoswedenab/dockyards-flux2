@@ -262,6 +262,7 @@ func (r *DockyardsWorkloadReconciler) reconcileWorkloadTemplate(ctx context.Cont
 
 			labels := map[string]string{
 				dockyardsv1.LabelWorkloadName: workload.Name,
+				dockyardsv1.LabelClusterName:  ownerCluster.Name,
 			}
 
 			u.SetLabels(labels)

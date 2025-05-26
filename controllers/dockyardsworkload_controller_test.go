@@ -550,6 +550,7 @@ func TestDockyardsWorkloadController_Create(t *testing.T) {
 				},
 				Labels: map[string]string{
 					dockyardsv1.LabelWorkloadName: workload.Name,
+					dockyardsv1.LabelClusterName:  cluster.Name,
 				},
 				CreationTimestamp: actual.CreationTimestamp,
 				Generation:        actual.Generation,
