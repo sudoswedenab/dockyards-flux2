@@ -34,10 +34,6 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if !kustomization.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, &kustomization)
-	}
-
 	patchHelper, err := patch.NewHelper(&kustomization, r.Client)
 	if err != nil {
 		return ctrl.Result{}, err
@@ -50,6 +46,11 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
+
+	if !kustomization.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(ctx, &kustomization)
+	}
+
 
 	result, err = r.reconcileWorkloadInventory(ctx, &kustomization)
 	if err != nil {
