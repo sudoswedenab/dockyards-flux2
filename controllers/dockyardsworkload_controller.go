@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
 
+// +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloads/status,verbs=patch
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloads,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloadtemplates,verbs=get;list;watch
@@ -49,7 +50,7 @@ func (r *DockyardsWorkloadReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	patchHelper, err := patch.NewHelper(&workload, r.Client)
+	patchHelper, err := patch.NewHelper(&workload, r)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -98,7 +99,7 @@ func (r *DockyardsWorkloadReconciler) reconcileWorkloadTemplate(ctx context.Cont
 		return ctrl.Result{}, nil
 	}
 
-	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r.Client, workload)
+	ownerCluster, err := apiutil.GetOwnerCluster(ctx, r, workload)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -246,7 +247,7 @@ func (r *DockyardsWorkloadReconciler) reconcileWorkloadTemplate(ctx context.Cont
 			return ctrl.Result{}, nil
 		}
 
-		operationResult, err := controllerutil.CreateOrPatch(ctx, r.Client, &u, func() error {
+		operationResult, err := controllerutil.CreateOrPatch(ctx, r, &u, func() error {
 			references := []metav1.OwnerReference{
 				{
 					APIVersion:         dockyardsv1.GroupVersion.String(),
