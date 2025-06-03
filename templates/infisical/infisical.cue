@@ -282,3 +282,4 @@ namespaceKustomization: kustomizev1.#Kustomization & {
         }
     }
 }
+
