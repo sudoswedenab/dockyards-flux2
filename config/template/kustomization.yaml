@@ -8,6 +8,7 @@ resources:
 - workloadtemplate_externaldns.yaml
 - workloadtemplate_gitrepository.yaml
 - workloadtemplate_helmchart.yaml
+- workloadtemplate_infisical.yaml
 - workloadtemplate_ingressnginx.yaml
 - workloadtemplate_openebsdynamiclocalpvprovisioner.yaml
 - workloadtemplate_prometheus.yaml
