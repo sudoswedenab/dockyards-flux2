@@ -73,6 +73,7 @@ require (
 	github.com/protocolbuffers/txtpbfmt v0.0.0-20241112170944-20d2c9ebc01d // indirect
 	github.com/rogpeppe/go-internal v1.13.2-0.20241226121412-a5dc8ff20d0a // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
+	github.com/tetratelabs/wazero v1.6.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
@@ -97,4 +98,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-tool sigs.k8s.io/controller-tools/cmd/controller-gen
+tool (
+	cuelang.org/go/cmd/cue
+	sigs.k8s.io/controller-tools/cmd/controller-gen
+)
