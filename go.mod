@@ -1,8 +1,6 @@
 module github.com/sudoswedenab/dockyards-flux2
 
-go 1.23.0
-
-toolchain go1.23.7
+go 1.24.4
 
 require (
 	cuelang.org/go v0.12.0
