@@ -1,0 +1,28 @@
+name: build
+on:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  build-push-ecr:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - id: prep
+        run: |
+          branch=${GITHUB_REF##*/}
+          sha=${GITHUB_SHA::8}
+          ts=$(date +%s)
+          echo "buildid=${branch}-${sha}-${ts}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4.2.2
+      - uses: sudoswedenab/sudo-actions/build-push@main
+        with:
+          aws-region: us-east-1
+          image: sudosweden/dockyards-flux2
+          registry-type: public
+          role-to-assume: arn:aws:iam::075899289117:role/GithubActionsDockyardsFlux2Public
+          tag: ${{ steps.prep.outputs.buildid }}
