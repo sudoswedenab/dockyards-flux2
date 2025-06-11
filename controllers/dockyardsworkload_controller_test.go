@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
 	"bitbucket.org/sudosweden/dockyards-flux2/controllers"
 	"bitbucket.org/sudosweden/dockyards-flux2/test/mockcrds"
 	helmv2 "github.com/fluxcd/helm-controller/api/v2"
@@ -18,6 +17,7 @@ import (
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
+	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

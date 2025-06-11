@@ -5,7 +5,6 @@ go 1.23.0
 toolchain go1.23.7
 
 require (
-	bitbucket.org/sudosweden/dockyards-backend/pkg/api v0.0.0-20250526071502-fcbd032abd70
 	cuelang.org/go v0.12.0
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/fluxcd/helm-controller/api v1.1.0
@@ -17,6 +16,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.81.0
 	github.com/spf13/pflag v1.0.5
+	github.com/sudoswedenab/dockyards-backend/api v0.0.0-20250611070732-3e237ff5f82f
 	k8s.io/api v0.32.2
 	k8s.io/apiextensions-apiserver v0.32.2
 	k8s.io/apimachinery v0.32.2

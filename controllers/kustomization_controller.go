@@ -3,9 +3,9 @@ package controllers
 import (
 	"context"
 
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/pkg/runtime/patch"
+	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -50,7 +50,6 @@ func (r *KustomizationReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if !kustomization.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, &kustomization)
 	}
-
 
 	result, err = r.reconcileWorkloadInventory(ctx, &kustomization)
 	if err != nil {

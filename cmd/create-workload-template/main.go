@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
 	"cuelang.org/go/cue/format"
 	"cuelang.org/go/cue/parser"
 	"github.com/spf13/pflag"
+	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
