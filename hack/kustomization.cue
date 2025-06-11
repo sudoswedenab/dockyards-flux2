@@ -10,7 +10,6 @@ kind:       "Kustomization"
 resources: [
 	"base",
 	"rbac",
-	"template",
 	"webhook",
 ]
 images: [
