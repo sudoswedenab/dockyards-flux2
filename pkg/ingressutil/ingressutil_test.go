@@ -3,8 +3,8 @@ package ingressutil_test
 import (
 	"testing"
 
-	"bitbucket.org/sudosweden/dockyards-flux2/pkg/ingressutil"
 	"github.com/google/go-cmp/cmp"
+	"github.com/sudoswedenab/dockyards-flux2/pkg/ingressutil"
 	networkingv1 "k8s.io/api/networking/v1"
 )
 

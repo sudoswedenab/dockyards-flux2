@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"bitbucket.org/sudosweden/dockyards-flux2/webhooks"
 	"github.com/google/go-cmp/cmp"
 	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
+	"github.com/sudoswedenab/dockyards-flux2/webhooks"
 	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

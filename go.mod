@@ -1,4 +1,4 @@
-module bitbucket.org/sudosweden/dockyards-flux2
+module github.com/sudoswedenab/dockyards-flux2
 
 go 1.23.0
 
