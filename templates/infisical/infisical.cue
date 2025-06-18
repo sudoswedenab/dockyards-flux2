@@ -59,29 +59,8 @@ worktree: dockyardsv1.#Worktree & {
     spec: files: {
         // Namespace resources
         "namespace/namespace.yaml": '\(yaml.Marshal(_namespace))'
-        //"namespace/kustomization.yaml": '\(yaml.Marshal({
-            //apiVersion: "kustomize.config.k8s.io/v1beta1"
-            //kind:       "Kustomization"
-            //resources: [
-                //"namespace.yaml"
-            //]
-        //}))'
-
-        // Workload resources
         "workload/secrets.yaml":   '\(yaml.Marshal(_infisicalSecret))'
         "workload/ingress.yaml":   '\(yaml.Marshal(_infisicalIngress))'
-        //"workload/kustomization.yaml": '\(yaml.Marshal({
-            //apiVersion: "kustomize.config.k8s.io/v1beta1"
-            //kind:       "Kustomization"
-            //namespace: string | *"infisical"  // Set default
-            //if #workload.spec.targetNamespace != _|_ {
-                //namespace: #workload.spec.targetNamespace
-            //}
-            //resources: [
-                //"secrets.yaml",
-                //"ingress.yaml"
-            //]
-        //}))'
     }
 }
 
@@ -252,7 +231,7 @@ _infisicalIngress: networkingv1.#Ingress & {
                         pathType: "Prefix"
                         backend: {
                             service: {
-                                name: "\(#workload.metadata.name)-infisical-standalone-infisical"
+                                name: "infisical-\(#workload.metadata.name)-infisical-standalone-infisical"
                                 port: number: 8080
                             }
                         }

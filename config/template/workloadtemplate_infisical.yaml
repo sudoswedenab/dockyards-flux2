@@ -65,9 +65,8 @@ spec:
       spec: files: {
 
         "namespace/namespace.yaml": '\(yaml.Marshal(_namespace))'
-
-        "workload/secrets.yaml": '\(yaml.Marshal(_infisicalSecret))'
-        "workload/ingress.yaml": '\(yaml.Marshal(_infisicalIngress))'
+        "workload/secrets.yaml":    '\(yaml.Marshal(_infisicalSecret))'
+        "workload/ingress.yaml":    '\(yaml.Marshal(_infisicalIngress))'
       }
     }
 
@@ -236,7 +235,7 @@ spec:
               path:     "/"
               pathType: "Prefix"
               backend: service: {
-                name: "\(#workload.metadata.name)-infisical-standalone-infisical"
+                name: "infisical-\(#workload.metadata.name)-infisical-standalone-infisical"
                 port: number: 8080
               }
             }]
