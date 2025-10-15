@@ -20,6 +20,10 @@ import (
 // repositories using Managed Identity.
 #GitProviderAzure: "azure"
 
+// GitProviderGitHub provides support for authentication to git
+// repositories using GitHub App authentication
+#GitProviderGitHub: "github"
+
 // IncludeUnavailableCondition indicates one of the includes is not
 // available. For example, because it does not exist, or does not have an
 // Artifact.
@@ -64,9 +68,9 @@ import (
 	// +optional
 	secretRef?: null | meta.#LocalObjectReference @go(SecretRef,*meta.LocalObjectReference)
 
-	// Provider used for authentication, can be 'azure', 'generic'.
+	// Provider used for authentication, can be 'azure', 'github', 'generic'.
 	// When not specified, defaults to 'generic'.
-	// +kubebuilder:validation:Enum=generic;azure
+	// +kubebuilder:validation:Enum=generic;azure;github
 	// +optional
 	provider?: string @go(Provider)
 
@@ -120,6 +124,12 @@ import (
 	// should be included in the Artifact produced for this GitRepository.
 	// +optional
 	include?: [...#GitRepositoryInclude] @go(Include,[]GitRepositoryInclude)
+
+	// SparseCheckout specifies a list of directories to checkout when cloning
+	// the repository. If specified, only these directories are included in the
+	// Artifact produced for this GitRepository.
+	// +optional
+	sparseCheckout?: [...string] @go(SparseCheckout,[]string)
 }
 
 // GitRepositoryInclude specifies a local reference to a GitRepository which
@@ -223,6 +233,11 @@ import (
 	// produce the current Artifact.
 	// +optional
 	observedInclude?: [...#GitRepositoryInclude] @go(ObservedInclude,[]GitRepositoryInclude)
+
+	// ObservedSparseCheckout is the observed list of directories used to
+	// produce the current Artifact.
+	// +optional
+	observedSparseCheckout?: [...string] @go(ObservedSparseCheckout,[]string)
 
 	// SourceVerificationMode is the last used verification mode indicating
 	// which Git object(s) have been verified.
