@@ -1,7 +1,7 @@
 package template
 
 import (
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
+	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
 	sourcev1 "github.com/fluxcd/source-controller/api/v1"
 )
 

@@ -2,7 +2,7 @@ package template
 
 import (
 	corev1 "k8s.io/api/core/v1"
-	dockyardsv1 "bitbucket.org/sudosweden/dockyards-backend/pkg/api/v1alpha3"
+	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
 )
 
 #cluster:  dockyardsv1.#Cluster
