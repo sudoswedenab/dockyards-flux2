@@ -15,39 +15,38 @@ Dockyards Flux2 is the Flux CD controller stack that interprets Dockyards backen
 
 ```mermaid
 flowchart LR
-    Workload["dockyards.io/v1alpha3 Workload"]
-    WorkloadTemplate["dockyards.io/v1alpha3 WorkloadTemplate"]
-    Worktree["dockyards.io/v1alpha3 Worktree"]
-    GitRepository["fluxcd.io/v1beta1 GitRepository"]
-    HelmRepository["helm.toolkit.fluxcd.io/v2 HelmRepository"]
-    HelmRelease["helm.toolkit.fluxcd.io/v2 HelmRelease"]
-    Kustomization["kustomize.toolkit.fluxcd.io/v1 Kustomization"]
-    WorkloadInventory["dockyards.io/v1alpha3 WorkloadInventory"]
-    DockyardsBackend["dockyards-backend"]
-    DockyardsFlux2["dockyards-flux2"]
-    DockyardsWorkloadTemplates["dockyards-workload-templates"]
-    Flux2
-    User
-    NS1["namespace1"]
-    NS2["namespace2"]
-    NS3["namespace3"]
+    User@{shape: rect, label: "User"}
+    DockyardsBackend@{shape: rect, label: "dockyards-backend"}
+    DockyardsWorkloadTemplates@{shape: rect, label: "dockyards-workload-templates"}
+    DockyardsFlux2@{shape: rect, label: "dockyards-flux2"}
+    Flux2@{shape: rect, label: "Flux"}
+    WorkloadTemplate@{shape: doc, label: "dockyards.io/v1alpha3 WorkloadTemplate"}
+    Workload@{shape: doc, label: "dockyards.io/v1alpha3 Workload"}
+    Worktree@{shape: doc, label: "dockyards.io/v1alpha3 Worktree"}
+    GitRepository@{shape: doc, label: "fluxcd.io/v1beta1 GitRepository"}
+    HelmRepository@{shape: doc, label: "helm.toolkit.fluxcd.io/v2 HelmRepository"}
+    HelmRelease@{shape: doc, label: "helm.toolkit.fluxcd.io/v2 HelmRelease"}
+    Kustomization@{shape: doc, label: "kustomize.toolkit.fluxcd.io/v1 Kustomization"}
+    WorkloadInventory@{shape: doc, label: "dockyards.io/v1alpha3 WorkloadInventory"}
+    NS1@{shape: cloud, label: "namespace1"}
+    NS2@{shape: cloud, label: "namespace2"}
+    NS3@{shape: cloud, label: "namespace3"}
 
-
-    DockyardsWorkloadTemplates -->|defines|WorkloadTemplate
+    DockyardsWorkloadTemplates -->|defines| WorkloadTemplate
     User -->|creates through API| DockyardsBackend
-    DockyardsBackend -->|creates and instance of|WorkloadTemplate
-    WorkloadTemplate -->|is instantiated into| Workload
-    Workload -->|is reconciled by| DockyardsFlux2
+    DockyardsBackend -->|creates and instantiates| WorkloadTemplate
+    WorkloadTemplate -->|instantiates| Workload
+    Workload -->|reconciled by| DockyardsFlux2
     DockyardsFlux2 -->|creates| Worktree
     DockyardsFlux2 -->|creates| WorkloadInventory
     DockyardsFlux2 -->|creates| HelmRepository
     DockyardsFlux2 -->|creates| HelmRelease
     DockyardsFlux2 -->|creates| Kustomization
-    Worktree -->|is grouped into| GitRepository
-    GitRepository -->|is applied via| Kustomization
-    HelmRepository -->|is applied via| Kustomization
-    HelmRelease -->|is applied via| Kustomization
-    Kustomization -->|is reconciled by| Flux2
+    Worktree -->|grouped into| GitRepository
+    GitRepository -->|applied via| Kustomization
+    HelmRepository -->|applied via| Kustomization
+    HelmRelease -->|applied via| Kustomization
+    Kustomization -->|reconciled by| Flux2
     Flux2 -->|provisions into| NS1
     Flux2 -->|provisions into| NS2
     Flux2 -->|provisions into| NS3
@@ -63,7 +62,6 @@ flowchart LR
             WorkloadTemplate
         end
 
-        
         subgraph organization
             Workload
             Worktree
