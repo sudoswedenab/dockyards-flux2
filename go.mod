@@ -3,6 +3,7 @@ module github.com/sudoswedenab/dockyards-flux2
 go 1.24.4
 
 require (
+	antrea.io/antrea v1.15.2
 	cuelang.org/go v0.12.0
 	github.com/RedHatInsights/strimzi-client-go v0.40.0
 	github.com/fluxcd/helm-controller/api v1.3.0
