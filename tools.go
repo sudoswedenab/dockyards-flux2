@@ -19,6 +19,7 @@
 package main
 
 import (
+	_ "antrea.io/antrea/pkg/apis/crd/v1beta1"
 	_ "github.com/RedHatInsights/strimzi-client-go/apis/kafka.strimzi.io/v1beta2"
 	_ "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	_ "k8s.io/api/rbac/v1"
