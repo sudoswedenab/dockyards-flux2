@@ -133,3 +133,12 @@ rules:
   - list
   - patch
   - watch
+- apiGroups:
+  - source.toolkit.fluxcd.io
+  resources:
+  - helmrepositories
+  - ocirepositories
+  verbs:
+  - get
+  - list
+  - watch
