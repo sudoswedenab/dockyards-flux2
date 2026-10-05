@@ -44,8 +44,8 @@ flowchart LR
     DockyardsFlux2 -->|creates| Kustomization
     Worktree -->|grouped into| GitRepository
     GitRepository -->|applied via| Kustomization
-    HelmRepository -->|applied via| Kustomization
-    HelmRelease -->|applied via| Kustomization
+    HelmRepository -->|applied via| HelmRelease
+    HelmRelease -->|reconciled by| Flux2
     Kustomization -->|reconciled by| Flux2
     Flux2 -->|provisions into| NS1
     Flux2 -->|provisions into| NS2
