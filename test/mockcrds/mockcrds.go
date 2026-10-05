@@ -24,6 +24,8 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+const typeObject = "object"
+
 var (
 	DockyardsCluster          = mockCRD(dockyardsv1.ClusterKind, "clusters", dockyardsv1.GroupVersion.Group, dockyardsv1.GroupVersion.Version)
 	DockyardsWorkload         = mockCRD(dockyardsv1.WorkloadKind, "workloads", dockyardsv1.GroupVersion.Group, dockyardsv1.GroupVersion.Version)
@@ -70,14 +72,14 @@ func mockCRD(kind, plural, group, version string) *apiextensionsv1.CustomResourc
 					},
 					Schema: &apiextensionsv1.CustomResourceValidation{
 						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{
-							Type: "object",
+							Type: typeObject,
 							Properties: map[string]apiextensionsv1.JSONSchemaProps{
 								"spec": {
-									Type:                   "object",
+									Type:                   typeObject,
 									XPreserveUnknownFields: ptr.To(true),
 								},
 								"status": {
-									Type:                   "object",
+									Type:                   typeObject,
 									XPreserveUnknownFields: ptr.To(true),
 								},
 							},
