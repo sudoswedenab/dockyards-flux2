@@ -16,6 +16,7 @@ package controllers
 
 import (
 	"context"
+	"time"
 
 	kustomizev1 "github.com/fluxcd/kustomize-controller/api/v1"
 	"github.com/fluxcd/pkg/runtime/patch"
@@ -93,6 +94,7 @@ func (r *KustomizationReconciler) reconcileDelete(ctx context.Context, kustomiza
 
 	if apierrors.IsNotFound(err) {
 		kustomization.Spec.Prune = false
+		kustomization.Spec.Interval = metav1.Duration{Duration: time.Minute}
 
 		logger.Info("updating prune flag for kustomization with no kubeconfig secret", "prune", kustomization.Spec.Prune)
 	}
