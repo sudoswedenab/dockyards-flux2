@@ -12,45 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: build
+name: release-please
 on:
   push:
     branches:
-      - feat/*
-      - fix/*
-      - refactor/*
       - main
-    paths:
-      - '**/*.go'
-      - go.mod
-      - go.sum
-      - .golangci.yaml
-      - Containerfile
-      - generate.go
-      - cmd/**
-      - config/**
-      - controllers/**
-      - cue.mod/**
-      - hack/**
-      - pkg/**
-      - test/**
-      - third_party/**
-      - tools.go
-      - webhooks/**
   workflow_dispatch:
 permissions:
-  id-token: write
   contents: read
 jobs:
-  build:
+  release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
     steps:
-      - id: prep
-        run: |
-          branch=${GITHUB_REF##*/}
-          sha=${GITHUB_SHA::8}
-          ts=$(date +%s)
-          echo "buildid=${branch}-${sha}-${ts}" >> "$GITHUB_OUTPUT"
+      - id: release
+        uses: sudoswedenab/sudo-actions/release-please@main
+
+  build-release:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
       - uses: actions/checkout@v4.2.2
       - uses: sudoswedenab/sudo-actions/build-push@main
         with:
@@ -58,4 +48,4 @@ jobs:
           image: sudosweden/dockyards-flux2
           registry-type: public
           role-to-assume: arn:aws:iam::075899289117:role/GithubActionsDockyardsFlux2Public
-          tag: ${{ steps.prep.outputs.buildid }}
+          tag: ${{ needs.release-please.outputs.tag_name }}

@@ -1,4 +1,4 @@
-# Copyright 2025 Sudo Sweden AB
+# Copyright 2026 Sudo Sweden AB
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,14 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: build
+name: validate
 on:
-  push:
-    branches:
-      - feat/*
-      - fix/*
-      - refactor/*
-      - main
+  pull_request:
     paths:
       - '**/*.go'
       - go.mod
@@ -33,29 +28,17 @@ on:
       - cue.mod/**
       - hack/**
       - pkg/**
-      - test/**
       - third_party/**
       - tools.go
       - webhooks/**
-  workflow_dispatch:
 permissions:
-  id-token: write
   contents: read
 jobs:
-  build:
+  go-generate:
     runs-on: ubuntu-latest
     steps:
-      - id: prep
-        run: |
-          branch=${GITHUB_REF##*/}
-          sha=${GITHUB_SHA::8}
-          ts=$(date +%s)
-          echo "buildid=${branch}-${sha}-${ts}" >> "$GITHUB_OUTPUT"
-      - uses: actions/checkout@v4.2.2
-      - uses: sudoswedenab/sudo-actions/build-push@main
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          aws-region: us-east-1
-          image: sudosweden/dockyards-flux2
-          registry-type: public
-          role-to-assume: arn:aws:iam::075899289117:role/GithubActionsDockyardsFlux2Public
-          tag: ${{ steps.prep.outputs.buildid }}
+          go-version-file: go.mod
+      - uses: sudoswedenab/sudo-actions/golang-generate@main
