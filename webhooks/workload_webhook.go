@@ -26,7 +26,9 @@ import (
 	cuejson "cuelang.org/go/encoding/json"
 	dockyardsv1 "github.com/sudoswedenab/dockyards-backend/api/v1alpha3"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -35,16 +37,58 @@ import (
 )
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloadtemplates,verbs=get;list;watch
+// +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
+// +kubebuilder:webhook:groups=dockyards.io,resources=workloads,verbs=create,path=/mutate-dockyards-io-v1alpha3-workload,mutating=true,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1,versions=v1alpha3,name=default.workload.dockyards.io
 // +kubebuilder:webhook:groups=dockyards.io,resources=workloads,verbs=create;update,path=/validate-dockyards-io-v1alpha3-workload,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1,versions=v1alpha3,name=validation.workload.dockyards.io
 
 type DockyardsWorkload struct {
 	Client client.Reader
 }
 
-var _ webhook.CustomValidator = &DockyardsWorkload{}
+var (
+	_ webhook.CustomValidator = &DockyardsWorkload{}
+	_ webhook.CustomDefaulter = &DockyardsWorkload{}
+)
 
 func (webhook *DockyardsWorkload) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewWebhookManagedBy(mgr).For(&dockyardsv1.Workload{}).WithValidator(webhook).Complete()
+	return ctrl.NewWebhookManagedBy(mgr).For(&dockyardsv1.Workload{}).WithDefaulter(webhook).WithValidator(webhook).Complete()
+}
+
+func (webhook *DockyardsWorkload) Default(ctx context.Context, obj runtime.Object) error {
+	workload, ok := obj.(*dockyardsv1.Workload)
+	if !ok {
+		return apierrors.NewBadRequest("unexpected type")
+	}
+
+	if hasClusterOwnerReference(workload) {
+		return nil
+	}
+
+	clusterName := workload.Labels[dockyardsv1.LabelClusterName]
+	if clusterName == "" {
+		return nil
+	}
+
+	cluster, err := webhook.getCluster(ctx, workload.Namespace, clusterName)
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	ownerReferences := workload.GetOwnerReferences()
+	ownerReferences = append(ownerReferences, metav1.OwnerReference{
+		APIVersion: dockyardsv1.GroupVersion.String(),
+		Kind:       dockyardsv1.ClusterKind,
+		Name:       cluster.Name,
+		UID:        cluster.UID,
+	})
+
+	workload.SetOwnerReferences(ownerReferences)
+
+	return nil
 }
 
 func (webhook *DockyardsWorkload) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
@@ -77,6 +121,18 @@ func (webhook *DockyardsWorkload) ValidateUpdate(ctx context.Context, oldObj, ne
 		return nil, apierrors.NewInvalid(dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(), oldWorkload.Name, field.ErrorList{forbidden})
 	}
 
+	if !webhook.validClusterReferenceUpdate(oldWorkload, newWorkload) {
+		forbidden := field.Forbidden(field.NewPath("metadata", "labels", dockyardsv1.LabelClusterName), "reference is immutable")
+
+		return nil, apierrors.NewInvalid(dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(), oldWorkload.Name, field.ErrorList{forbidden})
+	}
+
+	if !webhook.validOrganizationReferenceUpdate(oldWorkload, newWorkload) {
+		forbidden := field.Forbidden(field.NewPath("metadata", "labels", dockyardsv1.LabelOrganizationName), "reference is immutable")
+
+		return nil, apierrors.NewInvalid(dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(), oldWorkload.Name, field.ErrorList{forbidden})
+	}
+
 	return webhook.validate(ctx, newWorkload)
 }
 
@@ -84,11 +140,29 @@ func (webhook *DockyardsWorkload) validate(ctx context.Context, workload *dockya
 	var allWarnings admission.Warnings
 	var allErrors field.ErrorList
 
+	if workload.Labels[dockyardsv1.LabelOrganizationName] == "" {
+		required := field.Required(field.NewPath("metadata", "labels", dockyardsv1.LabelOrganizationName), "mandatory label")
+		allErrors = append(allErrors, required)
+	}
+
+	if workload.Labels[dockyardsv1.LabelClusterName] == "" {
+		required := field.Required(field.NewPath("metadata", "labels", dockyardsv1.LabelClusterName), "mandatory label")
+		allErrors = append(allErrors, required)
+	}
+
+	if len(allErrors) == 0 {
+		webhook.validateClusterReference(ctx, workload, &allErrors)
+	}
+
 	if workload.Spec.WorkloadTemplateInput != nil { //nolint:staticcheck
 		allWarnings = append(allWarnings, "ignoring deprecated field workloadTemplateInput")
 	}
 
 	if workload.Spec.WorkloadTemplateRef == nil {
+		if len(allErrors) > 0 {
+			return allWarnings, apierrors.NewInvalid(dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(), workload.Name, allErrors)
+		}
+
 		return allWarnings, nil
 	}
 
@@ -154,6 +228,10 @@ func (webhook *DockyardsWorkload) validate(ctx context.Context, workload *dockya
 	}
 
 	if !input.Exists() {
+		if len(allErrors) > 0 {
+			return allWarnings, apierrors.NewInvalid(dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(), workload.Name, allErrors)
+		}
+
 		return allWarnings, nil
 	}
 
@@ -175,7 +253,19 @@ func (webhook *DockyardsWorkload) validate(ctx context.Context, workload *dockya
 		return allWarnings, apierrors.NewInvalid(dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(), workload.Name, allErrors)
 	}
 
+	if len(allErrors) > 0 {
+		return allWarnings, apierrors.NewInvalid(dockyardsv1.GroupVersion.WithKind(dockyardsv1.WorkloadKind).GroupKind(), workload.Name, allErrors)
+	}
+
 	return allWarnings, nil
+}
+
+func (webhook *DockyardsWorkload) validClusterReferenceUpdate(oldWorkload, newWorkload *dockyardsv1.Workload) bool {
+	return oldWorkload.Labels[dockyardsv1.LabelClusterName] == newWorkload.Labels[dockyardsv1.LabelClusterName]
+}
+
+func (webhook *DockyardsWorkload) validOrganizationReferenceUpdate(oldWorkload, newWorkload *dockyardsv1.Workload) bool {
+	return oldWorkload.Labels[dockyardsv1.LabelOrganizationName] == newWorkload.Labels[dockyardsv1.LabelOrganizationName]
 }
 
 func (webhook *DockyardsWorkload) validTemplateReferenceUpdate(oldWorkload, newWorkload *dockyardsv1.Workload) bool {
@@ -192,4 +282,84 @@ func (webhook *DockyardsWorkload) validTemplateReferenceUpdate(oldWorkload, newW
 	}
 
 	return true
+}
+
+func (webhook *DockyardsWorkload) validateClusterReference(ctx context.Context, workload *dockyardsv1.Workload, allErrors *field.ErrorList) {
+	clusterName := workload.Labels[dockyardsv1.LabelClusterName]
+
+	clusterOwnerReference, hasClusterOwnerReference := findClusterOwnerReference(workload)
+	if hasClusterOwnerReference && clusterOwnerReference.Name != clusterName {
+		invalid := field.Invalid(field.NewPath("metadata", "ownerReferences"), clusterOwnerReference.Name, "cluster owner reference must match cluster label")
+		*allErrors = append(*allErrors, invalid)
+
+		return
+	}
+
+	cluster, err := webhook.getCluster(ctx, workload.Namespace, clusterName)
+	if apierrors.IsNotFound(err) {
+		notFound := field.NotFound(field.NewPath("metadata", "labels", dockyardsv1.LabelClusterName), clusterName)
+		*allErrors = append(*allErrors, notFound)
+
+		return
+	}
+
+	if err != nil {
+		internal := field.InternalError(field.NewPath("metadata", "labels", dockyardsv1.LabelClusterName), err)
+		*allErrors = append(*allErrors, internal)
+
+		return
+	}
+
+	if hasClusterOwnerReference && clusterOwnerReference.UID != cluster.UID {
+		invalid := field.Invalid(field.NewPath("metadata", "ownerReferences"), clusterOwnerReference.UID, "cluster owner reference UID does not match cluster")
+		*allErrors = append(*allErrors, invalid)
+
+		return
+	}
+
+	clusterOrganizationName := cluster.Labels[dockyardsv1.LabelOrganizationName]
+	workloadOrganizationName := workload.Labels[dockyardsv1.LabelOrganizationName]
+	if clusterOrganizationName != "" && workloadOrganizationName != clusterOrganizationName {
+		invalid := field.Invalid(field.NewPath("metadata", "labels", dockyardsv1.LabelOrganizationName), workloadOrganizationName, "organization label must match cluster owner organization")
+		*allErrors = append(*allErrors, invalid)
+	}
+}
+
+func (webhook *DockyardsWorkload) getCluster(ctx context.Context, namespace, name string) (*dockyardsv1.Cluster, error) {
+	objectKey := client.ObjectKey{Namespace: namespace, Name: name}
+
+	var cluster dockyardsv1.Cluster
+	err := webhook.Client.Get(ctx, objectKey, &cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	return &cluster, nil
+}
+
+func hasClusterOwnerReference(workload *dockyardsv1.Workload) bool {
+	_, found := findClusterOwnerReference(workload)
+
+	return found
+}
+
+func findClusterOwnerReference(workload *dockyardsv1.Workload) (metav1.OwnerReference, bool) {
+	for _, ownerReference := range workload.OwnerReferences {
+		if ownerReference.Kind != dockyardsv1.ClusterKind {
+			continue
+		}
+
+		groupVersion, err := schema.ParseGroupVersion(ownerReference.APIVersion)
+		if err != nil {
+			continue
+		}
+
+		if groupVersion.Group != dockyardsv1.GroupVersion.Group {
+			continue
+		}
+
+		return ownerReference, true
+	}
+
+	return metav1.OwnerReference{}, false
 }
