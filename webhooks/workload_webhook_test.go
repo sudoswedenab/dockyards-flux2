@@ -889,6 +889,12 @@ func TestDockyardsWorkload_Default(t *testing.T) {
 					dockyardsv1.LabelClusterName:      "test-cluster",
 				},
 			},
+			Spec: dockyardsv1.WorkloadSpec{
+				WorkloadTemplateRef: &corev1.TypedObjectReference{
+					Kind: "WorkloadTemplate",
+					Name: "test-template",
+				},
+			},
 		}
 
 		err := webhook.Default(context.Background(), &workload)
@@ -909,6 +915,14 @@ func TestDockyardsWorkload_Default(t *testing.T) {
 
 		if !cmp.Equal(workload.OwnerReferences[0], expectedOwnerReference) {
 			t.Errorf("diff: %s", cmp.Diff(expectedOwnerReference, workload.OwnerReferences[0]))
+		}
+
+		if workload.Spec.WorkloadTemplateRef == nil || workload.Spec.WorkloadTemplateRef.APIGroup == nil {
+			t.Fatal("expected workload template reference API group to be defaulted")
+		}
+
+		if *workload.Spec.WorkloadTemplateRef.APIGroup != dockyardsv1.GroupVersion.Group {
+			t.Fatalf("expected workload template reference API group %q, got %q", dockyardsv1.GroupVersion.Group, *workload.Spec.WorkloadTemplateRef.APIGroup)
 		}
 	})
 
@@ -939,6 +953,41 @@ func TestDockyardsWorkload_Default(t *testing.T) {
 
 		if len(workload.OwnerReferences) != 1 {
 			t.Fatalf("expected 1 owner reference, got %d", len(workload.OwnerReferences))
+		}
+	})
+
+	t.Run("keeps workload template reference API group when already set", func(t *testing.T) {
+		apiGroup := "example.io"
+
+		workload := dockyardsv1.Workload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-workload-existing-api-group",
+				Namespace: "testing",
+				Labels: map[string]string{
+					dockyardsv1.LabelOrganizationName: "test-org",
+					dockyardsv1.LabelClusterName:      "test-cluster",
+				},
+			},
+			Spec: dockyardsv1.WorkloadSpec{
+				WorkloadTemplateRef: &corev1.TypedObjectReference{
+					APIGroup: &apiGroup,
+					Kind:     "WorkloadTemplate",
+					Name:     "test-template",
+				},
+			},
+		}
+
+		err := webhook.Default(context.Background(), &workload)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if workload.Spec.WorkloadTemplateRef == nil || workload.Spec.WorkloadTemplateRef.APIGroup == nil {
+			t.Fatal("expected workload template reference API group to be set")
+		}
+
+		if *workload.Spec.WorkloadTemplateRef.APIGroup != apiGroup {
+			t.Fatalf("expected workload template reference API group %q, got %q", apiGroup, *workload.Spec.WorkloadTemplateRef.APIGroup)
 		}
 	})
 }
