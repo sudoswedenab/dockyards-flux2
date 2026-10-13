@@ -956,6 +956,47 @@ func TestDockyardsWorkload_Default(t *testing.T) {
 		}
 	})
 
+	t.Run("does not heal incorrect existing cluster owner reference", func(t *testing.T) {
+		workload := dockyardsv1.Workload{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-workload-incorrect-owner",
+				Namespace: "testing",
+				Labels: map[string]string{
+					dockyardsv1.LabelOrganizationName: "test-org",
+					dockyardsv1.LabelClusterName:      "test-cluster",
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: dockyardsv1.GroupVersion.String(),
+						Kind:       dockyardsv1.ClusterKind,
+						Name:       "other-cluster",
+						UID:        "other-cluster-uid",
+					},
+				},
+			},
+		}
+
+		err := webhook.Default(context.Background(), &workload)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if len(workload.OwnerReferences) != 1 {
+			t.Fatalf("expected 1 owner reference, got %d", len(workload.OwnerReferences))
+		}
+
+		expectedOwnerReference := metav1.OwnerReference{
+			APIVersion: dockyardsv1.GroupVersion.String(),
+			Kind:       dockyardsv1.ClusterKind,
+			Name:       "other-cluster",
+			UID:        "other-cluster-uid",
+		}
+
+		if !cmp.Equal(workload.OwnerReferences[0], expectedOwnerReference) {
+			t.Errorf("diff: %s", cmp.Diff(expectedOwnerReference, workload.OwnerReferences[0]))
+		}
+	})
+
 	t.Run("keeps workload template reference API group when already set", func(t *testing.T) {
 		apiGroup := "example.io"
 
