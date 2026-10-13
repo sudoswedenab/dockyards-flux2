@@ -34,6 +34,7 @@ webhooks:
     - v1alpha3
     operations:
     - CREATE
+    - UPDATE
     resources:
     - workloads
   sideEffects: None
