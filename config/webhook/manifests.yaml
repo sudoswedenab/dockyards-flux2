@@ -26,7 +26,7 @@ webhooks:
       namespace: system
       path: /mutate-dockyards-io-v1alpha3-workload
   failurePolicy: Fail
-  name: default.workload.dockyards.io
+  name: mutation.workload.dockyards.io
   rules:
   - apiGroups:
     - dockyards.io

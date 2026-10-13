@@ -38,7 +38,7 @@ import (
 
 // +kubebuilder:rbac:groups=dockyards.io,resources=workloadtemplates,verbs=get;list;watch
 // +kubebuilder:rbac:groups=dockyards.io,resources=clusters,verbs=get;list;watch
-// +kubebuilder:webhook:groups=dockyards.io,resources=workloads,verbs=create,path=/mutate-dockyards-io-v1alpha3-workload,mutating=true,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1,versions=v1alpha3,name=default.workload.dockyards.io
+// +kubebuilder:webhook:groups=dockyards.io,resources=workloads,verbs=create,path=/mutate-dockyards-io-v1alpha3-workload,mutating=true,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1,versions=v1alpha3,name=mutation.workload.dockyards.io
 // +kubebuilder:webhook:groups=dockyards.io,resources=workloads,verbs=create;update,path=/validate-dockyards-io-v1alpha3-workload,mutating=false,failurePolicy=fail,sideEffects=none,admissionReviewVersions=v1,versions=v1alpha3,name=validation.workload.dockyards.io
 
 type DockyardsWorkload struct {
