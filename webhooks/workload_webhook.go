@@ -60,6 +60,11 @@ func (webhook *DockyardsWorkload) Default(ctx context.Context, obj runtime.Objec
 		return apierrors.NewBadRequest("unexpected type")
 	}
 
+	if workload.Spec.WorkloadTemplateRef != nil && workload.Spec.WorkloadTemplateRef.APIGroup == nil {
+		apiGroup := dockyardsv1.GroupVersion.Group
+		workload.Spec.WorkloadTemplateRef.APIGroup = &apiGroup
+	}
+
 	if hasClusterOwnerReference(workload) {
 		return nil
 	}
